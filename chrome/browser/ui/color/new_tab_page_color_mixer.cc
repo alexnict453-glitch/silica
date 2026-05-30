@@ -415,7 +415,8 @@ void AddNewTabPageColorMixer(ui::ColorProvider* provider,
       ui::GetColorWithMaxContrast(element_background_color);
 
   ui::ColorMixer& mixer = provider->AddMixer();
-  mixer[kColorNewTabPageBackground] = {kColorToolbar};
+  // Silica: NTP canvas is the brand near-black #181818.
+  mixer[kColorNewTabPageBackground] = {SkColorSetRGB(0x18, 0x18, 0x18)};
   mixer[kColorNewTabPageHeader] = {SkColorSetRGB(0x96, 0x96, 0x96)};
   mixer[kColorNewTabPageLogoUnthemedDark] = {gfx::kGoogleGrey700};
   mixer[kColorNewTabPageLogoUnthemedLight] = {SkColorSetRGB(0xEE, 0xEE, 0xEE)};

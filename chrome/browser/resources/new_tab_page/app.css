@@ -19,6 +19,15 @@
   --color-searchbox-background: #1d1d1d;
   --color-searchbox-border: #272726;
   --cr-searchbox-border: 2px solid var(--color-searchbox-border);
+  /* Silica: the upstream realbox text colors only resolve to readable values
+     when the (disabled-by-default) RealboxCr23Theming flag is on, which left
+     suggestion text dark-on-dark. Set them explicitly so the dropdown stays
+     readable on the #1D1D1D surface. */
+  --color-searchbox-foreground: #f1f0e3;
+  --color-searchbox-results-foreground: #f1f0e3;
+  --color-searchbox-results-foreground-dimmed: #a39f99;
+  --color-searchbox-results-typed-prefix: #a39f99;
+  --color-searchbox-results-url: #8ab4f8;
   --cr-searchbox-shadow: 0 1px 6px 0 var(--color-searchbox-shadow);
   --cr-searchbox-icon-left-position: 12px;
   --cr-searchbox-icon-size-in-searchbox: 20px;

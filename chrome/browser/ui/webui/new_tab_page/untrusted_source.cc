@@ -152,6 +152,10 @@ std::string UntrustedSource::GetContentSecurityPolicy(
       return std::string();
     case network::mojom::CSPDirectiveName::FormAction:
       return "form-action https://ogs.google.com https://*.corp.google.com;";
+    case network::mojom::CSPDirectiveName::MediaSrc:
+      // Silica: allow video wallpapers to load (from their original https media
+      // URL or from this chrome-untrusted source).
+      return "media-src 'self' https: data: blob:;";
     default:
       return content::URLDataSource::GetContentSecurityPolicy(directive);
   }
@@ -293,6 +297,16 @@ std::string UntrustedSource::GetMimeType(const GURL& url) {
   if (base::EndsWith(stripped_path, ".jpg",
                      base::CompareCase::INSENSITIVE_ASCII)) {
     return "image/jpg";
+  }
+  // Silica: serve video wallpapers with a sensible MIME type when they are
+  // streamed through this source (e.g. a locally stored wallpaper video).
+  if (base::EndsWith(stripped_path, ".mp4",
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    return "video/mp4";
+  }
+  if (base::EndsWith(stripped_path, ".webm",
+                     base::CompareCase::INSENSITIVE_ASCII)) {
+    return "video/webm";
   }
 
   return "text/html";

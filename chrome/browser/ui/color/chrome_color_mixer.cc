@@ -1153,6 +1153,12 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorMenuItemBackgroundSelected] = {SkColorSetRGB(43, 42, 40)};
   mixer[ui::kColorMenuSelectionBackground] = {SkColorSetRGB(43, 42, 40)};
 
+  // Silica: the toolbar + web content sit flush on the #181818 canvas, so the
+  // rounded "toolbar top separator" hairline that BrowserRootView strokes around
+  // the top corners should be invisible rather than the default light-gray line.
+  mixer[kColorToolbarTopSeparatorFrameActive] = {SK_ColorTRANSPARENT};
+  mixer[kColorToolbarTopSeparatorFrameInactive] = {SK_ColorTRANSPARENT};
+
   // Apply high contrast recipes if necessary.
   if (!ShouldApplyHighContrastColors(key)) {
     return;

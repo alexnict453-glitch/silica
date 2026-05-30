@@ -163,8 +163,10 @@ void AddTabStripColorMixer(ui::ColorProvider* provider,
                      kColorTabBackgroundInactiveFrameInactive,
                      /* 85% opacity */ 0.85 * SK_AlphaOPAQUE)};
 
-  mixer[kColorTabDividerFrameActive] = {kColorToolbar};
-  mixer[kColorTabDividerFrameInactive] = {kColorToolbar};
+  // Silica: make the divider between horizontal tabs clearly visible on the
+  // dark canvas instead of blending into the toolbar color.
+  mixer[kColorTabDividerFrameActive] = {SkColorSetRGB(0x6E, 0x6B, 0x66)};
+  mixer[kColorTabDividerFrameInactive] = {SkColorSetRGB(0x44, 0x43, 0x3F)};
 
 #if !BUILDFLAG(IS_ANDROID)
   mixer[kColorTabDiscardRingFrameActive] = ui::BlendForMinContrastWithSelf(

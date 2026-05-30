@@ -172,25 +172,12 @@ void GoogleURLLoaderThrottle::DetachFromCurrentSequence() {}
 void GoogleURLLoaderThrottle::WillStartRequest(
     network::ResourceRequest* request,
     bool* defer) {
-  if (dynamic_params_->force_safe_search) {
-    GURL new_url;
-    safe_search_api::ForceGoogleSafeSearch(request->url, &new_url);
-    if (!new_url.is_empty()) {
-      request->url = new_url;
-    }
-  }
-
-  static_assert(safe_search_api::YOUTUBE_RESTRICT_OFF == 0,
-                "OFF must be first");
-  if (dynamic_params_->youtube_restrict >
-          safe_search_api::YOUTUBE_RESTRICT_OFF &&
-      dynamic_params_->youtube_restrict <
-          safe_search_api::YOUTUBE_RESTRICT_COUNT) {
-    safe_search_api::ForceYouTubeRestrict(
-        request->url, &request->cors_exempt_headers,
-        static_cast<safe_search_api::YouTubeRestrictMode>(
-            dynamic_params_->youtube_restrict));
-  }
+  // Silica: never force Google SafeSearch or YouTube Restricted Mode. Even if a
+  // managed policy, pref, or upstream configuration requests it, we drop the
+  // enforcement so users never see "Some results have been removed because
+  // Restricted Mode is enabled by your network administrator" or forced
+  // SafeSearch results. (We intentionally ignore dynamic_params_->force_safe_search
+  // and dynamic_params_->youtube_restrict here.)
 
   if (!dynamic_params_->allowed_domains_for_apps.empty() &&
       request->url.DomainIs("google.com")) {
@@ -249,20 +236,8 @@ void GoogleURLLoaderThrottle::WillRedirectRequest(
   // URLLoaderThrottles can only change the redirect URL when the network
   // service is enabled. The non-network service path handles this in
   // ChromeNetworkDelegate.
-  if (dynamic_params_->force_safe_search) {
-    safe_search_api::ForceGoogleSafeSearch(redirect_info->new_url,
-                                           &redirect_info->new_url);
-  }
-
-  if (dynamic_params_->youtube_restrict >
-          safe_search_api::YOUTUBE_RESTRICT_OFF &&
-      dynamic_params_->youtube_restrict <
-          safe_search_api::YOUTUBE_RESTRICT_COUNT) {
-    safe_search_api::ForceYouTubeRestrict(
-        redirect_info->new_url, modified_cors_exempt_headers,
-        static_cast<safe_search_api::YouTubeRestrictMode>(
-            dynamic_params_->youtube_restrict));
-  }
+  // Silica: never force Google SafeSearch or YouTube Restricted Mode on
+  // redirects either (see WillStartRequest above).
 
   if (!dynamic_params_->allowed_domains_for_apps.empty() &&
       redirect_info->new_url.DomainIs("google.com")) {

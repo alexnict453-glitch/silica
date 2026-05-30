@@ -201,8 +201,12 @@ VerticalTabStripRegionView::VerticalTabStripRegionView(
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kTabList);
 
-  // Force deep dark glassmorphism background on the sidebar
-  SetBackground(views::CreateSolidBackground(SkColorSetARGB(180, 25, 25, 25)));
+  // Reverted to original CustomCornersBackground to prevent
+  // DoPostLayoutVisualAdjustments check crash
+  SetBackground(std::make_unique<CustomCornersBackground>(
+      *this, *browser_view,
+      /*primary_color=*/CustomCornersBackground::FrameTheme(),
+      /*corner_color=*/CustomCornersBackground::ToolbarTheme()));
 
   shadow_frame_ = AddChildView(std::make_unique<ShadowFrameView>(
       kExpandOnHoverShadowElevation, kExpandOnHoverShadowAlpha));

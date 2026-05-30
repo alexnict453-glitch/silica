@@ -867,6 +867,8 @@ class BrowserView : public BrowserWindow,
   // side-by-side display.
   void HideSplitView();
 
+  void ToggleSplitScreen();
+
   // Update the index of the active split based on the active tab's web
   // contents.
   void UpdateActiveTabInSplitView();

@@ -276,14 +276,12 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
       kColorLocationBarClearAllButtonIcon, gfx::kDisabledControlAlpha);
 
   // Omnibox background colors.
-  mixer[kColorToolbarBackgroundSubtleEmphasis] = ui::SelectBasedOnDarkInput(
-      kColorToolbar, gfx::kGoogleGrey900, gfx::kGoogleGrey100);
-  mixer[kColorToolbarBackgroundSubtleEmphasisHovered] =
-      ui::BlendTowardMaxContrast(kColorToolbarBackgroundSubtleEmphasis, 0x0A);
+  mixer[kColorToolbarBackgroundSubtleEmphasis] = {SkColorSetRGB(35, 35, 35)};
+  mixer[kColorToolbarBackgroundSubtleEmphasisHovered] = {
+      SkColorSetRGB(51, 51, 51)};
 
   // Omnibox text colors.
-  mixer[kColorOmniboxText] =
-      ui::GetColorWithMaxContrast(kColorToolbarBackgroundSubtleEmphasis);
+  mixer[kColorOmniboxText] = {SK_ColorWHITE};
   mixer[kColorOmniboxResultsTextSelected] = {selected_text_color};
   mixer[kColorOmniboxKeywordSelected] =
       ui::SelectBasedOnDarkInput(kColorToolbarBackgroundSubtleEmphasis,
@@ -302,8 +300,8 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
       SkColorSetA(gfx::kGoogleGrey900, 0x24));
 
   // Results background, chip, button, and focus colors.
-  mixer[kColorOmniboxResultsBackground] =
-      ui::GetColorWithMaxContrast(kColorOmniboxText);
+  mixer[kColorOmniboxResultsBackground] = {
+      SkColorSetARGB(220, 25, 25, 25)};  // Dark glass dropdown
   mixer[kColorOmniboxResultsBackgroundIph] = {
       kColorOmniboxResultsBackgroundHovered};
   mixer[kColorOmniboxResultsBackgroundHovered] = ui::BlendTowardMaxContrast(

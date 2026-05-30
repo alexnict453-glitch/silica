@@ -602,6 +602,7 @@ void HistoryService::AddPage(HistoryAddPageArgs add_page_args) {
   DCHECK(backend_task_runner_) << "History service being called after cleanup";
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
+
   if (!CanAddURL(add_page_args.url))
     return;
 
@@ -1848,10 +1849,7 @@ void HistoryService::NotifyFaviconsChanged(const std::set<GURL>& page_urls,
 }
 
 bool HistoryService::CanAddURL(const GURL& url) {
-  if (!history_client_) {
-    return url.is_valid();
-  }
-  return history_client_->GetThreadSafeCanAddURLCallback().Run(url);
+  return false;
 }
 
 void HistoryService::LogTransitionMetricsForVisit(

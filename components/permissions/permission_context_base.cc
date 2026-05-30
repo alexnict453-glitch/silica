@@ -805,6 +805,7 @@ void PermissionContextBase::NotifyPermissionSet(
     const content::PermissionResult* permission_result,
     const permissions::PermissionPromptDecision& decision) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
+  persist = false;
   content::PermissionResult new_permission_result =
       permission_result ? *permission_result
                         : ComputeNewPermissionResult(request_data, decision);

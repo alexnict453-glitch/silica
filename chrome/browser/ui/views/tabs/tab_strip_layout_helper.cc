@@ -20,6 +20,13 @@
 #include "chrome/browser/ui/views/tabs/tab_group_header.h"
 #include "chrome/browser/ui/views/tabs/tab_layout_state.h"
 #include "chrome/browser/ui/views/tabs/tab_slot_view.h"
+
+#include "chrome/browser/ui/views/tabs/tab_slot_controller.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
+#include "content/public/browser/web_contents.h"
+
+
 #include "chrome/browser/ui/views/tabs/tab_strip_layout_types.h"
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/common/chrome_features.h"
@@ -28,6 +35,9 @@
 #include "ui/gfx/range/range.h"
 #include "ui/views/view_model.h"
 #include "ui/views/view_utils.h"
+
+extern const char kHiddenTabFlagKey[] = "HiddenTabFlagKey";
+
 
 struct TabStripLayoutHelper::TabSlot {
   static TabStripLayoutHelper::TabSlot CreateForTabSlotView(TabSlotView* view,
@@ -265,6 +275,7 @@ TabStripLayoutHelper::CalculateIdealBounds(std::optional<int> available_width) {
           : std::nullopt;
 
   std::vector<TabWidthConstraints> tab_widths;
+  int current_model_index = 0;
   for (int i = 0; i < static_cast<int>(slots_.size()); i++) {
     auto active =
         (i == active_tab_slot_index || i == active_split_tab_slot_index)
@@ -279,8 +290,32 @@ TabStripLayoutHelper::CalculateIdealBounds(std::optional<int> available_width) {
     auto open = (slots_[i].state.IsClosed() || SlotIsCollapsedTab(i))
                     ? TabOpen::kClosed
                     : TabOpen::kOpen;
-    TabLayoutState state =
-        TabLayoutState(open, pinned, active, slots_[i].view->split());
+
+    // FIX: Nested invalid namespace block has been removed from here
+
+    bool is_hidden = false;
+    if (slots_[i].type == TabSlotView::ViewType::kTab) {
+      if (open == TabOpen::kOpen) {
+        Tab* tab = views::AsViewClass<Tab>(slots_[i].view);
+        if (tab && tab->controller() && tab->controller()->GetBrowser()) {
+          Browser* browser = tab->controller()->GetBrowser();
+          if (browser && browser->tab_strip_model() &&
+              current_model_index < browser->tab_strip_model()->count()) {
+            content::WebContents* contents =
+                browser->tab_strip_model()->GetWebContentsAt(
+                    current_model_index);
+            // FIX: Accesses the globally defined kHiddenTabFlagKey correctly
+            if (contents && contents->GetUserData(&kHiddenTabFlagKey)) {
+              is_hidden = true;
+            }
+          }
+        }
+        current_model_index++;
+      }
+    }
+
+    TabLayoutState state = TabLayoutState(open, pinned, active,
+                                          slots_[i].view->split(), is_hidden);
     TabSizeInfo size_info = slots_[i].view->GetTabSizeInfo();
 
     tab_widths.emplace_back(state, size_info);

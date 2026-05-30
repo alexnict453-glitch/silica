@@ -8,6 +8,9 @@
 #include <optional>
 #include <variant>
 
+#include "ui/base/models/image_model.h"
+
+
 #include "base/callback_list.h"
 #include "base/check_is_test.h"
 #include "base/containers/adapters.h"
@@ -52,6 +55,8 @@
 #include "chrome/browser/ui/views/tabs/vertical/vertical_unpinned_tab_container_view.h"
 #include "chrome/browser/ui/web_applications/app_browser_controller.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/vector_icons/vector_icons.h"
+#include "ui/views/controls/button/image_button.h"
 #include "components/tabs/public/tab_group.h"
 #include "components/tabs/public/tab_interface.h"
 #include "ui/base/clipboard/clipboard_constants.h"
@@ -165,6 +170,15 @@ VerticalTabStripRegionView::VerticalTabStripRegionView(
               LayoutConstant::kVerticalTabStripCollapsedVerticalPadding),
           region_horizontal_padding, 0, region_horizontal_padding));
 
+  // Inject the Arc-style Settings Gear at the bottom of the sidebar
+  auto settings_button = std::make_unique<views::ImageButton>();
+  settings_button->SetImageModel(
+      views::Button::STATE_NORMAL,
+      ui::ImageModel::FromVectorIcon(vector_icons::kSettingsIcon,
+                                     ui::kColorIcon, 20));
+  settings_button->SetProperty(views::kMarginsKey, gfx::Insets::VH(16, 16));
+  AddChildView(std::move(settings_button));
+
   gemini_button_ = AddChildView(std::make_unique<views::View>());
 
   resize_area_ = AddChildView(std::make_unique<views::ResizeArea>(this));
@@ -187,10 +201,8 @@ VerticalTabStripRegionView::VerticalTabStripRegionView(
 
   GetViewAccessibility().SetRole(ax::mojom::Role::kTabList);
 
-  SetBackground(std::make_unique<CustomCornersBackground>(
-      *this, *browser_view,
-      /*primary_color=*/CustomCornersBackground::FrameTheme(),
-      /*corner_color=*/CustomCornersBackground::ToolbarTheme()));
+  // Force deep dark glassmorphism background on the sidebar
+  SetBackground(views::CreateSolidBackground(SkColorSetARGB(180, 25, 25, 25)));
 
   shadow_frame_ = AddChildView(std::make_unique<ShadowFrameView>(
       kExpandOnHoverShadowElevation, kExpandOnHoverShadowAlpha));

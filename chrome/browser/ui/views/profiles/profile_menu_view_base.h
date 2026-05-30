@@ -218,6 +218,8 @@ class ProfileMenuViewBase : public content::WebContentsDelegate,
 
   // views::BubbleDialogDelegateView:
   void Init() final;
+  void OnThemeChanged() override;  // Added to protect background transparency
+                                   // from theme updates [1]
 
   // content::WebContentsDelegate:
   bool HandleContextMenu(content::RenderFrameHost& render_frame_host,

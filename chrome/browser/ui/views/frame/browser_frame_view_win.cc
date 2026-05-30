@@ -5,6 +5,7 @@
 #include "chrome/browser/ui/views/frame/browser_frame_view_win.h"
 
 #include <dwmapi.h>
+#include "ui/compositor/layer.h" 
 
 #include <algorithm>
 #include <memory>
@@ -58,6 +59,8 @@
 #include "ui/views/widget/widget_observer.h"
 #include "ui/views/win/hwnd_util.h"
 #include "ui/views/window/client_view.h"
+#define ShouldBrowserCustomDrawTitlebar(...) true
+
 
 std::array<HICON, BrowserFrameViewWin::kThrobberIconCount>
     BrowserFrameViewWin::throbber_icons_;
@@ -81,6 +84,8 @@ constexpr int kMinimumTitleLeftBorderMargin = 11;
 constexpr int kMaximizedLeftMargin = 2;
 
 constexpr int kIconTitleSpacing = 5;
+
+
 
 }  // namespace
 
@@ -189,6 +194,10 @@ BrowserFrameViewWin::BrowserFrameViewWin(BrowserWidget* widget,
 
   caption_button_container_ =
       AddChildView(std::make_unique<BrowserCaptionButtonContainer>(this));
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
+  }
 }
 
 BrowserFrameViewWin::~BrowserFrameViewWin() = default;
@@ -233,9 +242,13 @@ bool BrowserFrameViewWin::CaptionButtonsOnLeadingEdge() const {
 }
 
 int BrowserFrameViewWin::GetTopInset(bool restored) const {
-  if (GetBrowserView()->GetTabStripVisible()) {
+  // If we are using Horizontal Tabs, use standard tight padding
+  if (GetBrowserView()->GetTabStripVisible() &&
+      !GetBrowserView()->ShouldDrawVerticalTabStrip()) {
     return TopAreaHeight(restored);
   }
+  // For Vertical Tabs (or hidden tabs), reserve the full titlebar row
+  // so the caption buttons fit and the search bar isn't cut off.
   return ShouldBrowserCustomDrawTitlebar(GetBrowserView())
              ? TitlebarHeight(restored)
              : 0;
@@ -526,6 +539,11 @@ void BrowserFrameViewWin::OnPaint(gfx::Canvas* canvas) {
 void BrowserFrameViewWin::Layout(PassKey) {
   TRACE_EVENT0("views.frame", "BrowserFrameViewWin::Layout");
 
+  // Force the entire NonClientView layer to stack above the ClientView layer
+  if (layer() && parent() && parent()->layer() && parent()->layer()->parent()) {
+    parent()->layer()->parent()->StackAtTop(parent()->layer());
+  }
+
   LayoutCaptionButtons();
   if (!GetBrowserView()->IsWindowControlsOverlayEnabled()) {
     LayoutTitleBar();
@@ -602,7 +620,7 @@ int BrowserFrameViewWin::TopAreaHeight(bool restored) const {
   }
 
   // The tabstrip controls its own top padding.
-  return FrameTopBorderThickness(restored);
+  return FrameTopBorderThickness(restored) + 6;
 }
 
 int BrowserFrameViewWin::TitlebarMaximizedVisualHeight() const {
@@ -628,7 +646,7 @@ int BrowserFrameViewWin::TitlebarHeight(bool restored) const {
   // The titlebar's actual height is the same in restored and maximized, but
   // some of it is above the screen in maximized mode. See the comment in
   // FrameTopBorderThicknessPx().
-  return TitlebarMaximizedVisualHeight() + FrameTopBorderThickness(false);
+  return TitlebarMaximizedVisualHeight() + FrameTopBorderThickness(false) + 6;
 }
 
 int BrowserFrameViewWin::GetFrameHeight() const {
@@ -824,7 +842,7 @@ void BrowserFrameViewWin::LayoutTitleBar() {
   }
   int next_trailing_x = width() - CaptionButtonsRegionWidth();
 
-  const int y = window_top + (titlebar_visual_height - icon_size) / 2;
+  const int y = window_top + (titlebar_visual_height - icon_size) / 2 + 6;
   const gfx::Rect window_icon_bounds =
       gfx::Rect(next_leading_x, y, icon_size, icon_size);
 
@@ -861,11 +879,13 @@ void BrowserFrameViewWin::LayoutCaptionButtons() {
           ? (TitlebarHeight(false) - WindowTopY())
           : GetFrameHeight();
 
+  // FIX: Shift the window controls down by 6px to match the lowered tab strip
+  // region
   caption_button_container_->SetBounds(
       CaptionButtonsOnLeadingEdge()
           ? system_caption_buttons_width
           : width() - system_caption_buttons_width - preferred_size.width(),
-      WindowTopY(), preferred_size.width(), height);
+      WindowTopY() + 6, preferred_size.width(), height);
 }
 
 void BrowserFrameViewWin::LayoutClientView() {

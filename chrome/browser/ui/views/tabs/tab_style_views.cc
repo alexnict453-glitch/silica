@@ -201,6 +201,10 @@ SkPath TabStyleViewsImpl::GetPath(TabStyle::PathType path_type,
                                   float scale,
                                   const TabPathFlags& flags) const {
   CHECK(tab());
+  // Skip stroke mapping entirely if the tab width is physically zeroed out
+  if (tab()->width() == 0) {
+    return SkPath();
+  }
   const int stroke_thickness = GetStrokeThickness(flags.force_active);
 
   const TabStyle::TabSelectionState state = GetSelectionState();
@@ -1041,6 +1045,9 @@ void TabStyleViewsImpl::PaintBackgroundStroke(
 }
 
 void TabStyleViewsImpl::PaintSeparators(gfx::Canvas* canvas) const {
+  if (tab()->width() == 0) {
+    return;
+  }
   const auto separator_opacities = GetSeparatorOpacities(false);
   if (!separator_opacities.left && !separator_opacities.right) {
     return;

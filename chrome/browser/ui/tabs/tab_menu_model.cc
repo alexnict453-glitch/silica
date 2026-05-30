@@ -534,6 +534,8 @@ void TabMenuModel::Build(int index) {
   AddItemWithStringId(TabStripModel::CommandCloseTab, IDS_TAB_CXMENU_CLOSETAB);
   AddItemWithStringId(TabStripModel::CommandCloseOtherTabs,
                       IDS_TAB_CXMENU_CLOSEOTHERTABS);
+  AddItem(TabStripModel::CommandSleepTab, u"Sleep Tab");
+  AddItem(TabStripModel::CommandHideTab, u"Hide Tab");
 
   if (showing_vertical_tabs) {
     AddItemWithStringId(TabStripModel::CommandCloseTabsToRight,

@@ -22,6 +22,9 @@
 #include "ui/views/paint_info.h"
 #include "ui/views/view_class_properties.h"
 
+#include "ui/compositor/layer.h"
+#include "ui/views/background.h"
+
 TopContainerView::TopContainerView(BrowserView* browser_view)
     : browser_view_(browser_view) {
   SetProperty(views::kElementIdentifierKey, kTopContainerElementId);

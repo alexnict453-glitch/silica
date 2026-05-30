@@ -1360,8 +1360,10 @@ void AutocompleteController::InitializeSyncProviders(int provider_types) {
     }
   }
   if (provider_types & AutocompleteProvider::TYPE_ZERO_SUGGEST_LOCAL_HISTORY) {
-    providers_.push_back(
-        LocalHistoryZeroSuggestProvider::Create(provider_client_.get(), this));
+    // ENFORCE ZERO-HISTORY & MEMORY-ONLY STATE: Disable local history zero
+    // suggest provider providers_.push_back(
+    //     LocalHistoryZeroSuggestProvider::Create(provider_client_.get(),
+    //     this));
   }
   if (provider_types & AutocompleteProvider::TYPE_MOST_VISITED_SITES) {
     providers_.push_back(base::MakeRefCounted<MostVisitedSitesProvider>(

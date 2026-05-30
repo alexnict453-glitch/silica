@@ -44,6 +44,7 @@
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/image/image.h"
 #include "ui/views/accessibility/view_accessibility.h"
+#include "ui/views/background.h" // <-- ADD THIS LINE
 #include "ui/views/cascading_property.h"
 #include "ui/views/layout/box_layout.h"
 #include "ui/views/property_effects.h"
@@ -281,6 +282,15 @@ OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
   UpdateAccessibleStates();
   UpdateAccessibleControlIds();
   UpdateAccessibleActiveDescendantForInvokingView();
+
+  // === GLASSMORPHISM CONFIGURATION ===
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(30);  // High frosted blur radius
+  }
+  // Apply a translucent background color (Alpha: 120, Red/Green/Blue: 25)
+  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 25, 25, 25)));
 }
 
 OmniboxPopupViewViews::~OmniboxPopupViewViews() {

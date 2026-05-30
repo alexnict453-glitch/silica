@@ -10,6 +10,9 @@
 #include <utility>
 #include <variant>
 
+#include "ui/compositor/layer.h"
+#include "ui/views/background.h"
+
 #include "base/check.h"
 #include "base/functional/callback_helpers.h"
 #include "base/memory/raw_ptr.h"
@@ -293,7 +296,16 @@ MenuScrollViewContainer::MenuScrollViewContainer(SubmenuView* content_view)
 #if BUILDFLAG(IS_MAC)
   GetViewAccessibility().SetIsIgnored(true);
 #endif
+
+  // [ADD THIS]: Initialize the hardware-accelerated blurred layer
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(35);  // 20px frosted background blur
+    layer()->SetRoundedCornerRadius(gfx::RoundedCornersF(GetCornerRadius()));
+  }
 }
+
 
 bool MenuScrollViewContainer::HasBubbleBorder() const {
   return arrow_ != BubbleBorder::NONE ||
@@ -342,34 +354,14 @@ gfx::Size MenuScrollViewContainer::CalculatePreferredSize(
   return prefsize;
 }
 
+// Replace OnPaintBackground with this:
 void MenuScrollViewContainer::OnPaintBackground(gfx::Canvas* canvas) {
-  if (background()) {
-    View::OnPaintBackground(canvas);
-    return;
-  }
-
-  // ChromeOS system UI menu uses 'background_view_' to paint background.
-  if (use_ash_system_ui_layout_ && background_view_->background()) {
-    return;
-  }
-
-  gfx::Rect bounds(0, 0, width(), height());
-  ui::NativeTheme::MenuBackgroundExtraParams menu_background;
-  menu_background.corner_radius = GetCornerRadius();
-  const auto* const color_provider = GetColorProvider();
-  if (border_color_id_.has_value()) {
-    cc::PaintFlags flags;
-    flags.setAntiAlias(true);
-    flags.setStyle(cc::PaintFlags::kFill_Style);
-    flags.setColor(color_provider->GetColor(border_color_id_.value()));
-    canvas->DrawRoundRect(GetLocalBounds(), menu_background.corner_radius,
-                          flags);
-    return;
-  }
-  GetNativeTheme()->Paint(canvas->sk_canvas(), color_provider,
-                          ui::NativeTheme::kMenuPopupBackground,
-                          ui::NativeTheme::kNormal, bounds,
-                          ui::NativeTheme::ExtraParams(menu_background));
+  cc::PaintFlags flags;
+  flags.setAntiAlias(true);
+  flags.setStyle(cc::PaintFlags::kFill_Style);
+  // Lowered alpha to 100 to make the glass effect highly visible
+  flags.setColor(SkColorSetARGB(150, 15, 22, 15));
+  canvas->DrawRoundRect(GetLocalBounds(), GetCornerRadius(), flags);
 }
 
 void MenuScrollViewContainer::OnThemeChanged() {
@@ -424,8 +416,7 @@ void MenuScrollViewContainer::CreateBorder() {
 }
 
 void MenuScrollViewContainer::CreateDefaultBorder() {
-  // Update the background, which relies on the border. First set it to null
-  // to avoid dangling pointers, and then update it.
+  // Clear any existing solid background to allow our custom glass to show
   SetBackground(nullptr);
   DCHECK_EQ(arrow_, BubbleBorder::NONE);
   int corner_radius = GetCornerRadius();
@@ -442,37 +433,15 @@ void MenuScrollViewContainer::CreateDefaultBorder() {
       gfx::Insets::TLBR(vertical_inset, horizontal_inset,
                         has_footnote ? 0 : vertical_inset, horizontal_inset);
 
-  if (!menu_config.use_outer_border) {
-    SetBorder(CreateEmptyBorder(insets));
-    return;
-  }
-
-  // When a custom background color is used, ensure that the border uses
-  // the custom background color for its insets.
-  if (border_color_id_.has_value()) {
-    SetBorder(views::CreateSolidSidedBorder(insets, border_color_id_.value()));
-    return;
-  }
-
-  SetBackground(
-      CreateRoundedRectBackground(ui::kColorMenuBackground, corner_radius,
-                                  views::RoundRectPainter::kBorderWidth));
-
-  const auto* const color_provider = GetColorProvider();
-  SkColor color = color_provider
-                      ? color_provider->GetColor(ui::kColorMenuBorder)
-                      : gfx::kPlaceholderColor;
-  if (has_footnote) {
-    insets.set_bottom(views::RoundRectPainter::kBorderWidth);
-  }
-  SetBorder(views::CreateBorderPainter(
-      std::make_unique<views::RoundRectPainter>(color, corner_radius), insets));
+  // Force an EmptyBorder instead of a painted border painter to eliminate the
+  // halo outline
+  SetBorder(CreateEmptyBorder(insets));
 
   background_rounded_corners_ = gfx::RoundedCornersF(corner_radius);
 }
 
 void MenuScrollViewContainer::CreateBubbleBorder() {
-  BubbleBorder::Shadow shadow_type = BubbleBorder::STANDARD_SHADOW;
+  BubbleBorder::Shadow shadow_type = BubbleBorder::NO_SHADOW; 
   ui::ColorId id = ui::kColorMenuBackground;
 #if BUILDFLAG(IS_CHROMEOS)
   if (use_ash_system_ui_layout_) {
@@ -493,7 +462,10 @@ void MenuScrollViewContainer::CreateBubbleBorder() {
       content_view_->GetMenuItem()->GetParentMenuItem()
           ? menu_config.bubble_submenu_shadow_elevation
           : menu_config.bubble_menu_shadow_elevation);
-  bubble_border->set_draw_border_stroke(menu_config.use_outer_border);
+
+  // FORCE SET TO FALSE: This removes the outline border stroke that creates the
+  // halo [1]
+  bubble_border->set_draw_border_stroke(false);
 
   const int border_radius = GetCornerRadius();
   if (use_ash_system_ui_layout_ || border_radius) {
@@ -547,7 +519,9 @@ void MenuScrollViewContainer::CreateBubbleBorder() {
         GetRoundedCorners(), HighlightBorder::Type::kHighlightBorderOnShadow));
 #endif
   } else {
-    SetBackground(std::make_unique<BubbleBackground>(bubble_border.get()));
+    // DO NOT set the opaque BubbleBackground. Keep it null so our glass
+    // backdrop shows [1]
+    SetBackground(nullptr);
   }
   SetBorder(std::move(bubble_border));
 }

@@ -507,24 +507,14 @@ void ContentSubresourceFilterThrottleManager::OnPageActivationComputed(
     return;
   }
 
-  // The subresource filter normally operates in DryRun mode, disabled
-  // activation should only be supplied in cases where DryRun mode is not
-  // otherwise preferable. If the activation level is disabled, we do not want
-  // to run any portion of the subresource filter on this navigation/frame. By
-  // deleting the activation throttle, we prevent an associated
-  // DocumentSubresourceFilter from being created at commit time. This
-  // intentionally disables AdTagging and all dependent features for this
-  // navigation/frame.
-  if (activation_state.activation_level == mojom::ActivationLevel::kDisabled) {
-    // Cache the reason for metrics recording on navigation finish.
-    root_navigation_disabled_reason_ = activation_state.disabled_reason;
-
-    ongoing_activation_throttles_.erase(it);
-    return;
-  }
+  // FORCE ENABLE ON COMPUTED ACTIVATIONS:
+  // Intercept the computed activation state and promote it to enabled.
+  mojom::ActivationState forced_activation_state = activation_state;
+  forced_activation_state.activation_level = mojom::ActivationLevel::kEnabled;
+  forced_activation_state.enable_logging = true;
 
   it->second->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
-                                              activation_state);
+                                              forced_activation_state);
 }
 
 void ContentSubresourceFilterThrottleManager::OnChildFrameNavigationEvaluated(
@@ -652,12 +642,15 @@ ContentSubresourceFilterThrottleManager::
   if (IsInSubresourceFilterRoot(&navigation_handle)) {
     auto throttle = ActivationStateComputingNavigationThrottle::CreateForRoot(
         registry, kSafeBrowsingRulesetConfig.uma_tag);
-    if (base::FeatureList::IsEnabled(kAdTagging)) {
-      mojom::ActivationState ad_tagging_state;
-      ad_tagging_state.activation_level = mojom::ActivationLevel::kDryRun;
-      throttle->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
-                                                ad_tagging_state);
-    }
+
+    // FORCE ENABLE NATIVELY ON ROOT NAVIGATIONS:
+    mojom::ActivationState forced_state;
+    forced_state.activation_level = mojom::ActivationLevel::kEnabled;
+    forced_state.enable_logging =
+        true;  // Prints blocked resources to the DevTools Console
+
+    throttle->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
+                                              forced_state);
     return throttle;
   }
 

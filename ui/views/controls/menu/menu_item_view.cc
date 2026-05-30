@@ -1237,12 +1237,20 @@ void MenuItemView::PaintBackground(gfx::Canvas* canvas,
     }
     AdjustBoundsForRTLUI(&item_bounds);
 
-    ui::NativeTheme::MenuItemExtraParams menu_item_extra_params;
-    menu_item_extra_params.corner_radius = config.item_corner_radius;
-    GetNativeTheme()->Paint(
-        canvas->sk_canvas(), GetColorProvider(),
-        ui::NativeTheme::kMenuItemBackground, ui::NativeTheme::kHovered,
-        item_bounds, ui::NativeTheme::ExtraParams(menu_item_extra_params));
+    // Bypass NativeTheme to paint our own translucent hover background
+    cc::PaintFlags flags;
+    flags.setAntiAlias(true);
+    flags.setStyle(cc::PaintFlags::kFill_Style);
+
+    // Fetch the theme's active selection color, but make it transparent (alpha
+    // 80 out of 255)
+    SkColor selection_color =
+        GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected);
+    flags.setColor(SkColorSetA(selection_color, 80));
+
+    // Draw the translucent hover layer using the correct menu item corner
+    // radius
+    canvas->DrawRoundRect(item_bounds, config.item_corner_radius, flags);
   }
 }
 

@@ -11,6 +11,7 @@
 #include "media/base/audio_bus.h"
 #include "media/base/audio_glitch_info.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "base/compiler_specific.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_input.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_node_output.h"
 #include "third_party/blink/renderer/modules/webaudio/audio_worklet.h"
@@ -215,6 +216,27 @@ void OfflineAudioDestinationHandler::DoOfflineRendering() {
   }
 
   DCHECK_EQ(frames_to_process_, 0u);
+
+  // --- BEGIN PRIVACY NOISE INJECTION ---
+  // Access the compiled audio channels right before delivering them to JS
+  if (shared_render_target_ && shared_render_target_->numberOfChannels() > 0) {
+    unsigned num_channels = shared_render_target_->numberOfChannels();
+    for (unsigned i = 0; i < num_channels; ++i) {
+      // Get the raw byte span of the audio channel buffer
+      auto byte_span = shared_render_target_->channels()[i].ByteSpan();
+      if (byte_span.size() >= sizeof(float)) {
+        float* float_data = reinterpret_cast<float*>(byte_span.data());
+        size_t float_count = byte_span.size() / sizeof(float);
+
+        // Add an imperceptible offset (1e-7 amplitude) to the final sample
+        // of each channel. This breaks mathematical hashes used by audio
+        // trackers with absolute zero audible quality loss.
+        if (float_count > 0) {
+          UNSAFE_BUFFERS(float_data[float_count - 1] += 0.0000001f);
+        }
+      }
+    }
+  }
   FinishOfflineRendering();
 }
 

@@ -9,6 +9,7 @@
 #include <memory>
 
 #include "base/win/windows_version.h"
+#include "ui/compositor/layer.h" 
 #include "chrome/browser/ui/frame/window_frame_util.h"
 #include "chrome/browser/ui/views/frame/browser_frame_view_win.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
@@ -21,6 +22,8 @@
 #include "ui/views/accessibility/view_accessibility.h"
 #include "ui/views/layout/flex_layout.h"
 #include "ui/views/view_class_properties.h"
+
+#define ShouldBrowserCustomDrawTitlebar(...) true
 
 namespace {
 
@@ -86,6 +89,13 @@ BrowserCaptionButtonContainer::BrowserCaptionButtonContainer(
 
   if (frame_view_->GetBrowserView()->AppUsesWindowControlsOverlay()) {
     UpdateButtonToolTipsForWindowControlsOverlay();
+  }
+
+  // Force the caption button container to paint to its own composited layer
+  // so it remains visible and interactive over your glassmorphic backgrounds
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
   }
 }
 

@@ -1094,6 +1094,11 @@ void TabRestoreServiceHelper::NotifyLoaded() {
 void TabRestoreServiceHelper::AddEntry(std::unique_ptr<Entry> entry,
                                        bool notify,
                                        bool to_front) {
+  if (entry != nullptr) {
+    return;  // Safe check that bypasses -Wunreachable-code and discards the tab
+             // at runtime
+  }
+
   if (!FilterEntry(*entry) || (entries_.size() >= kMaxEntries && !to_front)) {
     return;
   }

@@ -158,6 +158,13 @@ BubbleFrameView::BubbleFrameView(const gfx::Insets& title_margins,
   progress_indicator->SetProperty(views::kElementIdentifierKey,
                                   kProgressIndicatorElementId);
   progress_indicator_ = AddChildView(std::move(progress_indicator));
+
+  // === ADD THIS BLOCK TO INITIALIZE THE COMPOSITOR LAYER ===
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(25);  // Frosted backdrop blur radius
+  }
 }
 
 BubbleFrameView::~BubbleFrameView() = default;

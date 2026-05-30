@@ -121,6 +121,13 @@ views::ProposedLayout VerticalPinnedTabContainerView::CalculateProposedLayout(
         gfx::Rect(child->GetPreferredSize(views::SizeBounds(child_width, {})));
     bounds.set_width(child_width);
 
+    // FIX: Skip calculations and grid placement for hidden pinned tabs to
+    // collapse layout gaps cleanly
+    if (!child->GetVisible() || bounds.height() == 0) {
+      layouts.child_layouts.emplace_back(child, false, gfx::Rect());
+      continue;
+    }
+
     auto drag_data = GetVisualDataForDraggedView(*child);
     const bool should_show_child = !(drag_data && drag_data->should_hide);
     if (!should_show_child) {

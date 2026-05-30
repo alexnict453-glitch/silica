@@ -50,7 +50,16 @@ class SolidBackground : public Background {
   void Paint(gfx::Canvas* canvas, View* view) const override {
     // Fill the background. Note that we don't constrain to the bounds as
     // canvas is already clipped for us.
-    canvas->DrawColor(color().ResolveToSkColor(view->GetColorProvider()));
+    SkColor paint_color = color().ResolveToSkColor(view->GetColorProvider());
+
+    // Intercept and make it translucent if it's drawing a bubble color
+    if (view->GetColorProvider() &&
+        paint_color ==
+            view->GetColorProvider()->GetColor(ui::kColorBubbleBackground)) {
+      paint_color = SkColorSetA(paint_color, 140);
+    }
+
+    canvas->DrawColor(paint_color);
   }
 
   void OnViewThemeChanged(View* view) override {
@@ -76,17 +85,26 @@ class RoundedRectBackground : public Background {
   void Paint(gfx::Canvas* canvas, View* view) const override {
     gfx::Rect rect(view->GetLocalBounds());
     rect.Inset(insets_);
-    const SkVector radii[4] = {{radii_.upper_left(),  radii_.upper_left()},
+    const SkVector radii[4] = {{radii_.upper_left(), radii_.upper_left()},
                                {radii_.upper_right(), radii_.upper_right()},
                                {radii_.lower_right(), radii_.lower_right()},
-                               {radii_.lower_left(),  radii_.lower_left()}};
+                               {radii_.lower_left(), radii_.lower_left()}};
     const SkPath path =
         SkPath::RRect(SkRRect::MakeRectRadii(gfx::RectToSkRect(rect), radii));
+
+    SkColor paint_color = color().ResolveToSkColor(view->GetColorProvider());
+
+    // Intercept and make it translucent if it's drawing a bubble color
+    if (view->GetColorProvider() &&
+        paint_color ==
+            view->GetColorProvider()->GetColor(ui::kColorBubbleBackground)) {
+      paint_color = SkColorSetA(paint_color, 140);
+    }
 
     cc::PaintFlags flags;
     flags.setAntiAlias(true);
     flags.setStyle(cc::PaintFlags::kFill_Style);
-    flags.setColor(color().ResolveToSkColor(view->GetColorProvider()));
+    flags.setColor(paint_color);
     canvas->DrawPath(path, flags);
   }
 

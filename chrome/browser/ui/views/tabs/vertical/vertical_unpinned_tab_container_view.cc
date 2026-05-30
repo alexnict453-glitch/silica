@@ -121,6 +121,8 @@ views::ProposedLayout VerticalUnpinnedTabContainerView::CalculateProposedLayout(
       collection_node_ ? collection_node_->GetDirectChildren()
                        : std::vector<views::View*>();
 
+  int placed_visible_children = 0;
+
   // Layout children in order. Children will have their preferred height and
   // fill available width.
   for (auto* child : children) {
@@ -137,6 +139,14 @@ views::ProposedLayout VerticalUnpinnedTabContainerView::CalculateProposedLayout(
                               : size_bounds.width(),
                           {});
     gfx::Rect bounds = gfx::Rect(child->GetPreferredSize(child_size_bounds));
+
+    // FIX: Skip calculations and bounds mapping for hidden tabs to collapse
+    // layout gaps cleanly
+    if (!child->GetVisible() || bounds.height() == 0) {
+      layouts.child_layouts.emplace_back(child, false, gfx::Rect());
+      continue;
+    }
+
     bounds.set_x(x);
 
     auto drag_data = GetVisualDataForDraggedView(*child);
@@ -152,9 +162,11 @@ views::ProposedLayout VerticalUnpinnedTabContainerView::CalculateProposedLayout(
     layouts.child_layouts.emplace_back(child, child->GetVisible(), bounds);
     height += bounds.height() + kTabVerticalPadding;
     width = std::max(width, bounds.width() + bounds.x());
+    placed_visible_children++;
   }
-  // Remove excess padding if needed.
-  if (!children.empty()) {
+  // Remove excess padding if needed (ensures no negative height is returned if
+  // all tabs are hidden)
+  if (placed_visible_children > 0) {
     height -= kTabVerticalPadding;
   }
 
@@ -179,8 +191,17 @@ gfx::Size VerticalUnpinnedTabContainerView::GetMinimumSize() const {
     return gfx::Size();
   }
 
-  // The minimum size should be enough to show a tab and a half, if needed.
-  const int num_children = collection_node_->GetDirectChildren().size();
+  // Count actually visible child tabs
+  int visible_children = 0;
+  for (auto* child : collection_node_->GetDirectChildren()) {
+    if (child->GetVisible() && child->GetPreferredSize().height() > 0) {
+      visible_children++;
+    }
+  }
+
+  // FIX: Guarantee height of at least 1.5 tabs when empty or completely hidden
+  // so the container does not collapse and render the Plus Button unclickable.
+  const int num_children = std::max(1, visible_children);
   const int min_height =
       base::ClampCeil(GetLayoutConstant(LayoutConstant::kVerticalTabHeight) *
                       std::min(1.5f, static_cast<float>(num_children))) +
@@ -197,7 +218,11 @@ VerticalUnpinnedTabContainerView::GetLinkDropIndex(
   }
   for (auto& child_node : collection_node_->children()) {
     auto* view = child_node->view();
-    CHECK(view);
+
+    // FIX: Removed CHECK(view) to safely skip closing/animating-out views
+    if (!view) {
+      continue;
+    }
     if (loc_in_container.y() >= view->bounds().bottom()) {
       continue;
     }
@@ -289,6 +314,7 @@ void VerticalUnpinnedTabContainerView::UpdateTargetLayoutForDrag(
     const std::vector<const views::View*>& views_to_snap) {
   layout_manager_->ResetViewsToTargetLayout(views_to_snap);
 }
+
 const views::ProposedLayout&
 VerticalUnpinnedTabContainerView::GetLayoutForDrag() const {
   return layout_manager_->target_layout();

@@ -370,6 +370,9 @@ void Tab::AnimationProgressed(const gfx::Animation* animation) {
 }
 
 bool Tab::GetHitTestMask(SkPath* mask) const {
+  if (width() == 0) {
+    return false;
+  }
   // When the window is maximized we don't want to shave off the edges or top
   // shadow of the tab, such that the user can click anywhere along the top
   // edge of the screen to select a tab. Ditto for immersive fullscreen.

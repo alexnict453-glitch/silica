@@ -638,8 +638,7 @@ int LocationBarView::GetBorderRadius() const {
 
 // static
 int LocationBarView::ComputeBorderRadius(gfx::Size size) {
-  return ChromeLayoutProvider::Get()->GetCornerRadiusMetric(
-      views::Emphasis::kMaximum, size);
+  return size.height() / 2;  // Perfect pill shape
 }
 
 // static

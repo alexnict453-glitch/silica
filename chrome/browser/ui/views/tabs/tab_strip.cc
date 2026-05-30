@@ -1949,8 +1949,19 @@ Tab* TabStrip::GetAdjacentTab(const Tab* tab, int offset) {
   if (!tab_index.has_value()) {
     return nullptr;
   }
-  const int adjacent_index = tab_index.value() + offset;
-  return IsValidModelIndex(adjacent_index) ? tab_at(adjacent_index) : nullptr;
+
+  // FIX: Skip hidden/invisible tabs so that adjacent visible tabs can calculate
+  // and paint their correct curved shape (preventing the square separator
+  // glitch).
+  int target_index = tab_index.value() + offset;
+  while (IsValidModelIndex(target_index)) {
+    Tab* adjacent = tab_at(target_index);
+    if (adjacent && adjacent->GetVisible() && adjacent->width() > 0) {
+      return adjacent;
+    }
+    target_index += (offset > 0 ? 1 : -1);
+  }
+  return nullptr;
 }
 
 std::vector<Tab*> TabStrip::GetTabsInSplit(const Tab* tab) {

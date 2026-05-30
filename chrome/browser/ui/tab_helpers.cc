@@ -10,6 +10,13 @@
 #include <utility>
 
 #include "base/command_line.h"
+
+#include "base/strings/utf_string_conversions.h"
+#include "content/public/browser/navigation_handle.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents_observer.h"
+
+
 #include "base/feature_list.h"
 #include "base/logging.h"
 #include "base/time/default_tick_clock.h"
@@ -308,6 +315,185 @@ std::optional<int64_t> GetPageContentAnnotationsTabId(
   // TODO(crbug.com/440643544): Implement a usable tab ID for other platforms.
   return std::nullopt;
 }
+
+// Native observer to inject ad-skipping scriptlets dynamically on YouTube
+class YouTubeAdSkipper : public content::WebContentsObserver,
+                         public base::SupportsUserData::Data {
+ public:
+  static void CreateForWebContents(content::WebContents* web_contents) {
+    if (!web_contents) {
+      return;
+    }
+    if (web_contents->GetUserData(UserDataKey())) {
+      return;
+    }
+    web_contents->SetUserData(UserDataKey(),
+                              std::make_unique<YouTubeAdSkipper>(web_contents));
+  }
+
+  explicit YouTubeAdSkipper(content::WebContents* web_contents)
+      : content::WebContentsObserver(web_contents) {}
+
+  ~YouTubeAdSkipper() override = default;
+
+  // 1. Handles initial full page reloads safely
+  void DocumentOnLoadCompletedInPrimaryMainFrame() override {
+    if (web_contents() && web_contents()->GetPrimaryMainFrame()) {
+      InjectSkipper(web_contents()->GetPrimaryMainFrame());
+    }
+  }
+
+  // 2. Handles SPA (Single Page App) same-document video switches
+  void DidFinishNavigation(
+      content::NavigationHandle* navigation_handle) override {
+    if (navigation_handle->HasCommitted() &&
+        !navigation_handle->IsErrorPage() &&
+        navigation_handle->IsInPrimaryMainFrame()) {
+      InjectSkipper(navigation_handle->GetRenderFrameHost());
+    }
+  }
+
+ private:
+  void InjectSkipper(content::RenderFrameHost* frame_host) {
+    if (!frame_host) {
+      return;
+    }
+    const GURL& url = frame_host->GetLastCommittedURL();
+    if (url.DomainIs("youtube.com")) {
+      const char* ad_skip_js = R"JS(
+        (function() {
+          if (window.__ytAdBlockActive) return;
+          window.__ytAdBlockActive = true;
+
+          // 1. CSS Rules to instantly hide UI ad layout elements
+          const style = document.createElement('style');
+          style.textContent = `
+            ytd-ad-slot-renderer, ytd-companion-ad-renderer, ytd-promoted-sparkles-web-renderer,
+            ytd-promoted-video-renderer, #masthead-ad, #player-ads, .ytp-ad-overlay-container,
+            .ytp-ad-message-container, .ytp-ad-image-overlay, .ytp-ad-text-overlay,
+            #rendering-content.ytd-ad-slot-renderer, .ytd-carousel-ad-renderer-wrapper,
+            ytd-display-ad-renderer, ytd-statement-banner-renderer, .ad-showing, .ad-interrupting,
+            ytd-action-companion-ad-renderer, ytd-banner-promo-renderer-background,
+            .video-ads, .ytp-ad-module, tp-yt-paper-dialog:has(yt-playability-error-supported-renderers) { 
+              display: none !important; 
+            }
+          `;
+          document.documentElement.appendChild(style);
+
+          // 2. Helper to strip ad variables out of JSON payloads
+          const stripAds = (obj) => {
+            if (!obj || typeof obj !== 'object') return obj;
+            try {
+              if (obj.playerResponse) {
+                delete obj.playerResponse.adPlacements;
+                delete obj.playerResponse.playerAds;
+              }
+              if (obj.adPlacements) delete obj.adPlacements;
+              if (obj.playerAds) delete obj.playerAds;
+              if (obj.overlay && obj.overlay.playerOverlayRenderer) {
+                delete obj.overlay.playerOverlayRenderer.playerAds;
+              }
+            } catch(e) {}
+            return obj;
+          };
+
+          // 3. Intercept Initial Global Player Response Config (On Cold Page Loads)
+          let _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
+          Object.defineProperty(window, 'ytInitialPlayerResponse', {
+            get: () => _ytInitialPlayerResponse,
+            set: (val) => { _ytInitialPlayerResponse = stripAds(val); }
+          });
+          if (window.ytInitialPlayerResponse) {
+            window.ytInitialPlayerResponse = stripAds(window.ytInitialPlayerResponse);
+          }
+
+          let _ytInitialData = window.ytInitialData;
+          Object.defineProperty(window, 'ytInitialData', {
+            get: () => _ytInitialData,
+            set: (val) => { _ytInitialData = stripAds(val); }
+          });
+          if (window.ytInitialData) {
+            window.ytInitialData = stripAds(window.ytInitialData);
+          }
+
+          // 4. Intercept Fetch API requests (On Dynamic Player/Video Transitions)
+          const origFetch = window.fetch;
+          window.fetch = async function(...args) {
+            const reqUrl = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
+            if (reqUrl.includes('/youtubei/v1/player') || reqUrl.includes('/youtubei/v1/next')) {
+              try {
+                const response = await origFetch.apply(this, args);
+                const clone = response.clone();
+                const text = await clone.text();
+                const json = JSON.parse(text);
+                const cleaned = stripAds(json);
+                return new Response(JSON.stringify(cleaned), {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                });
+              } catch (e) {
+                return origFetch.apply(this, args);
+              }
+            }
+            return origFetch.apply(this, args);
+          };
+
+          // 5. Intercept XMLHttpRequest requests
+          const origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            this._reqUrl = url;
+            return origOpen.apply(this, arguments);
+          };
+          const origGetText = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'responseText');
+          if (origGetText) {
+            Object.defineProperty(XMLHttpRequest.prototype, 'responseText', {
+              get: function() {
+                const text = origGetText.get.call(this);
+                if (this._reqUrl && (this._reqUrl.includes('/youtubei/v1/player') || this._reqUrl.includes('/youtubei/v1/next'))) {
+                  try {
+                    const json = JSON.parse(text);
+                    return JSON.stringify(stripAds(json));
+                  } catch(e) {}
+                }
+                return text;
+              }
+            });
+          }
+
+          // 6. Fast Player Ad-Skipping Fallback (For un-intercepted dynamic elements)
+          const skipYouTubeAd = () => {
+            const video = document.querySelector('video');
+            const adShowing = document.querySelector('.ad-showing, .ad-interrupting');
+            if (video && adShowing) {
+              video.playbackRate = 16.0;
+              video.muted = true;
+              if (!isNaN(video.duration) && video.duration > 0) {
+                 video.currentTime = video.duration - 0.1;
+              }
+            }
+            const skipButtons = document.querySelectorAll('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
+            skipButtons.forEach(b => {
+              b.click();
+              b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            });
+          };
+          const observer = new MutationObserver(skipYouTubeAd);
+          observer.observe(document.documentElement, { childList: true, subtree: true });
+          setInterval(skipYouTubeAd, 500);
+        })();
+      )JS";
+
+      frame_host->ExecuteJavaScript(base::UTF8ToUTF16(ad_skip_js),
+                                    base::NullCallback());
+    }
+  }
+
+  static const void* UserDataKey() {
+    static const int kKey = 0;
+    return &kKey;
+  }
+};
 
 }  // namespace
 
@@ -640,6 +826,9 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
       web_contents);
   vr::VrTabHelper::CreateForWebContents(web_contents);
   OneTimePermissionsTrackerHelper::CreateForWebContents(web_contents);
+
+  // Native YouTube Ad Blocker Injection Hook
+  YouTubeAdSkipper::CreateForWebContents(web_contents);
 
   // NO! Do not just add your tab helper here. This is a large alphabetized
   // block; please insert your tab helper above in alphabetical order.

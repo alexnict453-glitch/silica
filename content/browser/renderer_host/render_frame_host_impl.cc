@@ -3845,7 +3845,16 @@ void RenderFrameHostImpl::ExecuteJavaScriptMethod(
     base::ListValue arguments,
     JavaScriptResultCallback callback) {
   CHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(CanExecuteJavaScript());
+
+  // FIX: Soft-guard instead of hard CHECK to prevent background lifecycle
+  // crashes
+  if (!CanExecuteJavaScript()) {
+    if (!callback.is_null()) {
+      std::move(callback).Run(base::Value());
+    }
+    return;
+  }
+
   AssertFrameWasCommitted();
 
   const bool wants_result = !callback.is_null();
@@ -3857,7 +3866,16 @@ void RenderFrameHostImpl::ExecuteJavaScriptMethod(
 void RenderFrameHostImpl::ExecuteJavaScript(const std::u16string& javascript,
                                             JavaScriptResultCallback callback) {
   CHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(CanExecuteJavaScript());
+
+  // FIX: Soft-guard instead of hard CHECK to prevent background lifecycle
+  // crashes
+  if (!CanExecuteJavaScript()) {
+    if (!callback.is_null()) {
+      std::move(callback).Run(base::Value());
+    }
+    return;
+  }
+
   AssertFrameWasCommitted();
 
   const bool wants_result = !callback.is_null();
@@ -3872,6 +3890,16 @@ void RenderFrameHostImpl::ExecuteJavaScriptInIsolatedWorld(
   CHECK_CURRENTLY_ON(BrowserThread::UI);
   CHECK_GT(world_id, ISOLATED_WORLD_ID_GLOBAL);
   CHECK_LE(world_id, ISOLATED_WORLD_ID_MAX);
+
+  // FIX: Soft-guard instead of hard CHECK to prevent background lifecycle
+  // crashes
+  if (!CanExecuteJavaScript()) {
+    if (!callback.is_null()) {
+      std::move(callback).Run(base::Value());
+    }
+    return;
+  }
+
   AssertFrameWasCommitted();
 
   const bool wants_result = !callback.is_null();

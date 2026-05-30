@@ -33,6 +33,11 @@ TabSizer CalculateSpaceFractionAvailable(
   float crossover_width = 0;
   float preferred_width = 0;
   for (const TabWidthConstraints& tab : tabs) {
+    // If the tab is flagged as hidden, skip factoring it into layout
+    // constraints
+    if (tab.get_state().hidden()) {
+      continue;
+    }
     // Add the tab's width, less the width of its trailing foot (which would
     // be double counting).
     minimum_width += tab.GetMinimumWidth() - tab_overlap;
@@ -129,6 +134,12 @@ void AllocateExtraSpace(std::vector<gfx::Rect>* bounds,
   int allocated_extra_space = 0;
   for (size_t i = 0; i < tabs.size(); i++) {
     const TabWidthConstraints& tab = tabs[i];
+
+    // Hidden tabs should not receive extra rounding space and are skipped
+    if (tab.get_state().hidden()) {
+      continue;
+    }
+
     bounds->at(i).set_x(bounds->at(i).x() + allocated_extra_space);
     if (allocated_extra_space < extra_space &&
         tab_sizer.TabAcceptsExtraSpace(tab)) {
@@ -151,6 +162,13 @@ std::pair<std::vector<gfx::Rect>, LayoutDomain> CalculateTabBounds(
   int next_x = 0;
   std::vector<gfx::Rect> bounds;
   for (const TabWidthConstraints& tab : tabs) {
+    // If the tab is hidden, collapse its boundaries and do not advance next_x
+    if (tab.get_state().hidden()) {
+      // FIX: Set standard offscreen Y coordinate (-1000) as a safeguard to make
+      // sure the view stays physically invisible
+      bounds.emplace_back(next_x, -1000, 0, 0);
+      continue;
+    }
     const int tab_width = tab_sizer.CalculateTabWidth(tab);
     bounds.emplace_back(next_x, 0, tab_width,
                         TabStyle::Get()->GetStandardHeight());
@@ -159,7 +177,8 @@ std::pair<std::vector<gfx::Rect>, LayoutDomain> CalculateTabBounds(
 
   const std::optional<int> calculated_extra_space =
       width.has_value()
-          ? std::make_optional(width.value() - bounds.back().right())
+          ? std::make_optional(width.value() -
+                               (bounds.empty() ? 0 : bounds.back().right()))
           : std::nullopt;
   const std::optional<int> extra_space = calculated_extra_space;
   AllocateExtraSpace(&bounds, tabs, extra_space, tab_sizer);

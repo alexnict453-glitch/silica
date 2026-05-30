@@ -16,23 +16,31 @@ class TabLayoutState {
  public:
   TabLayoutState() = default;
 
-  TabLayoutState(TabOpen openness,
-                 TabPinned pinnedness,
-                 TabActive activeness,
-                 std::optional<split_tabs::SplitTabId> splitness)
+  TabLayoutState(
+      TabOpen openness,
+      TabPinned pinnedness,
+      TabActive activeness,
+      std::optional<split_tabs::SplitTabId> splitness,
+      bool hiddenness = false)  // Added parameter with a default value of false
       : openness_(openness),
         pinnedness_(pinnedness),
         activeness_(activeness),
-        splitness_(splitness) {}
+        splitness_(splitness),
+        hiddenness_(hiddenness) {
+  }  // Initialize the hiddenness_ member variable
 
   TabOpen open() const { return openness_; }
   TabPinned pinned() const { return pinnedness_; }
   TabActive active() const { return activeness_; }
   std::optional<split_tabs::SplitTabId> split() const { return splitness_; }
+  bool hidden() const { return hiddenness_; }  // Added getter function
 
   void set_open(TabOpen open) { this->openness_ = open; }
   void set_pinned(TabPinned pinned) { this->pinnedness_ = pinned; }
   void set_active(TabActive active) { this->activeness_ = active; }
+  void set_hidden(bool hidden) {
+    this->hiddenness_ = hidden;
+  }  // Added setter function
 
   bool IsClosed() const;
 
@@ -48,6 +56,9 @@ class TabLayoutState {
 
   // Whether this tab is split.
   std::optional<split_tabs::SplitTabId> splitness_ = std::nullopt;
+
+  // Whether this tab is hidden.
+  bool hiddenness_ = false;  // Added private member variable
 };
 
 #endif  // CHROME_BROWSER_UI_VIEWS_TABS_TAB_LAYOUT_STATE_H_

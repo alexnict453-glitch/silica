@@ -89,18 +89,15 @@ int TabStyle::GetMinimumInactiveWidth() const {
 }
 
 int TabStyle::GetTopCornerRadius() const {
-  return 10;
+  return 8;  // Pill shape radius
 }
 
 int TabStyle::GetBottomCornerRadius() const {
-  return 12;
+  return 8;  // Pill shape radius
 }
 
 int TabStyle::GetTabOverlap() const {
-  // The overlap removes the width and the margins of the separator.
-  const float total_separator_width =
-      GetSeparatorMargins().width() + GetSeparatorSize().width();
-  return 2 * GetBottomCornerRadius() - total_separator_width;
+  return 0;  // Removing overlap isolates the tabs into floating pills
 }
 
 gfx::Size TabStyle::GetPreviewImageSize() const {

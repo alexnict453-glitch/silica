@@ -79,15 +79,32 @@ bool Screen::AreWebExposedScreenPropertiesEqual(
 }
 
 int Screen::height() const {
-  if (!DomWindow())
+  if (!DomWindow()) {
     return 0;
-  return GetRect(/*available=*/false).height();
+  }
+
+  int original_height = GetRect(/*available=*/false).height();
+
+  // Only apply spoofing if the screen size is valid (not 0 or tiny)
+  if (original_height > 100) {
+    return original_height -
+           4;  // Subtract 4 pixels to spoof resolution tracking
+  }
+  return original_height;
 }
 
 int Screen::width() const {
-  if (!DomWindow())
+  if (!DomWindow()) {
     return 0;
-  return GetRect(/*available=*/false).width();
+  }
+
+  int original_width = GetRect(/*available=*/false).width();
+
+  if (original_width > 100) {
+    return original_width -
+           4;  // Subtract 4 pixels to spoof resolution tracking
+  }
+  return original_width;
 }
 
 unsigned Screen::colorDepth() const {

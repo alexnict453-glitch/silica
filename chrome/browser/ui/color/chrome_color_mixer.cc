@@ -728,8 +728,8 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       ui::GetColorWithMaxContrast(kColorThumbnailTabBackground);
   mixer[kColorThumbnailTabStripBackgroundActive] = {ui::kColorFrameActive};
   mixer[kColorThumbnailTabStripBackgroundInactive] = {ui::kColorFrameInactive};
-  mixer[kColorToolbar] = {dark_mode ? SkColorSetRGB(0x35, 0x36, 0x3A)
-                                    : SK_ColorWHITE};
+  // Translucent deep dark background for the main toolbar (Glassmorphism)
+  mixer[kColorToolbar] = {SkColorSetARGB(180, 25, 25, 25)};
   mixer[kColorToolbarContextualTasksButtonShadow] = {
       ui::SetAlpha(ui::kColorShadowBase, 0x255 * 17 / 100)};
   mixer[kColorToolbarButtonBackgroundHighlightedDefault] =
@@ -1116,6 +1116,44 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
       SkColorSetRGB(0x47, 0x47, 0x47)};
   mixer[kColorReadAnythingFullPageScrollbarLowContrastDark] = {
       SkColorSetRGB(0xC7, 0xC7, 0xC7)};
+
+  // Force active tab to be a lighter pill color, and inactive tabs to be
+  // transparent
+  mixer[kColorTabBackgroundActiveFrameActive] = {
+      SkColorSetARGB(255, 42, 42, 42)};
+  mixer[kColorTabBackgroundActiveFrameInactive] = {
+      SkColorSetARGB(255, 42, 42, 42)};
+  mixer[kColorTabBackgroundInactiveFrameActive] = {SK_ColorTRANSPARENT};
+  mixer[kColorTabBackgroundInactiveFrameInactive] = {SK_ColorTRANSPARENT};
+  mixer[kColorTabForegroundActiveFrameActive] = {SK_ColorWHITE};
+  mixer[kColorTabForegroundInactiveFrameActive] = {
+      SkColorSetRGB(150, 150, 150)};
+
+  // Force active tab to be a lighter pill color, and inactive tabs to be
+  // transparent
+  mixer[kColorTabBackgroundActiveFrameActive] = {
+      SkColorSetARGB(255, 42, 42, 42)};
+  mixer[kColorTabBackgroundActiveFrameInactive] = {
+      SkColorSetARGB(255, 42, 42, 42)};
+  mixer[kColorTabBackgroundInactiveFrameActive] = {SK_ColorTRANSPARENT};
+  mixer[kColorTabBackgroundInactiveFrameInactive] = {SK_ColorTRANSPARENT};
+  mixer[kColorTabForegroundActiveFrameActive] = {SK_ColorWHITE};
+  mixer[kColorTabForegroundInactiveFrameActive] = {
+      SkColorSetRGB(150, 150, 150)};
+
+  // Stomp out the dynamic green Material You tokens with deep dark
+  // glassmorphism hues
+  mixer[ui::kColorSysBase] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[ui::kColorSysHeader] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[ui::kColorSysHeaderInactive] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[ui::kColorSysHeaderContainer] = {SkColorSetARGB(255, 42, 42, 42)};
+  mixer[ui::kColorSysHeaderContainerInactive] = {
+      SkColorSetARGB(255, 42, 42, 42)};
+  mixer[ui::kColorSysSurfaceVariant] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[ui::kColorSysBaseContainer] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[ui::kColorSysBaseContainerElevated] = {SkColorSetARGB(255, 42, 42, 42)};
+  mixer[ui::kColorSysOnSurface] = {SK_ColorWHITE};
+  mixer[ui::kColorSysOnSurfaceSubtle] = {SkColorSetRGB(150, 150, 150)};
 
   // Apply high contrast recipes if necessary.
   if (!ShouldApplyHighContrastColors(key)) {

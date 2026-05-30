@@ -45,6 +45,7 @@
 #include "base/feature_list.h"
 #include "base/location.h"
 #include "base/memory/scoped_refptr.h"
+#include "base/compiler_specific.h"
 #include "base/memory/values_equivalent.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_functions.h"
@@ -72,6 +73,8 @@
 #include "third_party/blink/renderer/core/css/resolver/style_resolver.h"
 #include "third_party/blink/renderer/core/css/style_engine.h"
 #include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/renderer/core/html/canvas/image_data.h"
+#include "third_party/blink/renderer/bindings/core/v8/v8_union_float16array_float32array_uint8clampedarray.h"
 #include "third_party/blink/renderer/core/dom/element.h"
 #include "third_party/blink/renderer/core/frame/settings.h"
 #include "third_party/blink/renderer/core/frame/web_feature.h"
@@ -783,17 +786,54 @@ ImageData* CanvasRenderingContext2D::getImageDataInternal(
       CreationAttributes().will_read_frequently ==
           CanvasContextCreationAttributesCore::WillReadFrequently::kTrue);
   TRACE_EVENT0("blink", "GetImageData");
-  return BaseRenderingContext2D::getImageDataInternal(
+
+  // 1. Capture the original image data object
+  ImageData* image_data = BaseRenderingContext2D::getImageDataInternal(
       sx, sy, sw, sh, image_data_settings, exception_state);
+
+  // 2. Intercept and slightly randomize the pixels to prevent fingerprinting
+  if (image_data) {
+    const V8ImageDataArray* pixel_array_union = image_data->data();
+
+    // Check if the underlying V8 union contains a standard Uint8ClampedArray
+    if (pixel_array_union && pixel_array_union->IsUint8ClampedArray()) {
+      // Extract the DOMUint8ClampedArray from the union wrapper
+      DOMUint8ClampedArray* pixel_array =
+          pixel_array_union->GetAsUint8ClampedArray().Get();
+
+      if (pixel_array && pixel_array->length() > 0) {
+        size_t last_index = pixel_array->length() - 1;
+
+        // Get the raw uint8_t* memory pointer to the pixel buffer
+        uint8_t* raw_data = pixel_array->Data();
+
+        // Wrap raw pointer subscripting in the UNSAFE_BUFFERS macro to bypass
+        // compiler check
+        UNSAFE_BUFFERS(raw_data[last_index] = raw_data[last_index] ^ 1);
+      }
+    }
+  }
+
+  // 3. Return the altered canvas data
+  return image_data;
 }
 
 void CanvasRenderingContext2D::EnableAccelerationIfPossible() {
-  if (canvas()->GetRasterModeForCanvas2D() == RasterMode::kCPU &&
-      AllowSoftwareToAcceleratedCanvasUpgrade(
-          SharedGpuContext::ContextProviderWrapper().get())) {
-    canvas()->SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
-    DropAndRecreateExistingResourceProvider();
+  if (canvas()) {
+    // If the canvas is currently rasterizing on the CPU, try upgrading it to
+    // GPU
+    if (canvas()->GetRasterModeForCanvas2D() == RasterMode::kCPU) {
+      canvas()->SetPreferred2DRasterMode(RasterModeHint::kPreferGPU);
+      DropAndRecreateExistingResourceProvider();
+      canvas()->SetNeedsCompositingUpdate();
+    }
   }
+}
+
+
+CanvasRenderingContextHost*
+CanvasRenderingContext2D::GetCanvasRenderingContextHost() const {
+  return Host();
 }
 
 void CanvasRenderingContext2D::PreFinalizeFrame() {
@@ -832,11 +872,6 @@ void CanvasRenderingContext2D::FinalizeFrame(FlushReason reason) {
       host->RateLimiter()->Tick();
     }
   }
-}
-
-CanvasRenderingContextHost*
-CanvasRenderingContext2D::GetCanvasRenderingContextHost() const {
-  return Host();
 }
 
 ExecutionContext* CanvasRenderingContext2D::GetTopExecutionContext() const {

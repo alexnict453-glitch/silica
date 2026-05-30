@@ -1848,12 +1848,13 @@ LRESULT HWNDMessageHandler::OnCreate(CREATESTRUCT* create_struct) {
     ::SetProp(hwnd(), ui::kWindowTranslucent, reinterpret_cast<HANDLE>(1));
   }
 
-  if (base::win::GetVersion() >= base::win::Version::WIN11 &&
+if (base::win::GetVersion() >= base::win::Version::WIN11 &&
       use_rounded_corner_) {
     DWM_WINDOW_CORNER_PREFERENCE corner_pref = DWMWCP_ROUND;
     ::DwmSetWindowAttribute(hwnd(), DWMWA_WINDOW_CORNER_PREFERENCE,
                             &corner_pref, sizeof(corner_pref));
   }
+
 
   fullscreen_handler_->set_hwnd(hwnd());
 
@@ -3301,8 +3302,8 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
   }
 
   if (message == WM_RBUTTONUP && is_right_mouse_pressed_on_caption_) {
-    // TODO(pkasting): Maybe handle this in DesktopWindowTreeHostWin, where we
-    // handle alt-space, or in the frame itself.
+    // TODO(pkashington): Maybe handle this in DesktopWindowTreeHostWin, where
+    // we handle alt-space, or in the frame itself.
     is_right_mouse_pressed_on_caption_ = false;
     ::ReleaseCapture();
     // |point| is in window coordinates, but WM_NCHITTEST and TrackPopupMenu()
@@ -3312,12 +3313,17 @@ LRESULT HWNDMessageHandler::HandleMouseEventInternal(UINT message,
     w_param = static_cast<WPARAM>(::SendMessage(
         hwnd(), WM_NCHITTEST, 0, MAKELPARAM(screen_point.x, screen_point.y)));
     if (w_param == HTCAPTION || w_param == HTSYSMENU) {
+      // Commented out to bypass the native Win32/Custom system menu on titlebar
+      // right-click. This allows the vertical tab strip to receive the click
+      // and show its context menu.
+      /*
       if (delegate_->UsesNativeSystemMenu()) {
         ShowSystemMenuAtScreenPixelLocation(hwnd(), gfx::Point(screen_point));
       } else {
         delegate_->ShowCustomSystemMenu(gfx::Point(screen_point));
       }
       return 0;
+      */
     }
   } else if (message == WM_NCLBUTTONDOWN &&
              delegate_->GetFrameMode() == FrameMode::CUSTOM_DRAWN) {

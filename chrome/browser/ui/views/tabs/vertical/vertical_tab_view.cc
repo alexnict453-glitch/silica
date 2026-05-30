@@ -86,6 +86,8 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
+extern const char kHiddenTabFlagKey[];
+
 namespace {
 constexpr int kIconDesignWidth = 16;
 constexpr int kTitleMinWidth = 10;
@@ -431,7 +433,9 @@ void VerticalTabView::OnMouseMoved(const ui::MouseEvent& event) {
 }
 
 void VerticalTabView::OnMouseEntered(const ui::MouseEvent& event) {
-  CHECK(collection_node_);
+  if (!collection_node_) {
+    return;
+  }
   UpdateHoverCard(this, TabSlotController::HoverCardUpdateType::kHover);
 
   // Hover state is handled by the parent if it is split.
@@ -448,7 +452,9 @@ void VerticalTabView::OnMouseEntered(const ui::MouseEvent& event) {
 }
 
 void VerticalTabView::OnMouseExited(const ui::MouseEvent& event) {
-  CHECK(collection_node_);
+  if (!collection_node_) {
+    return;
+  }
 
   // Hover state is handled by the parent if it is split.
   if (split_) {
@@ -788,6 +794,15 @@ bool VerticalTabView::IsChildVisible(const views::View* child_view,
 
 views::ProposedLayout VerticalTabView::CalculateProposedLayout(
     const views::SizeBounds& size_bounds) const {
+  // FIX: Force individual tab size to collapse completely when hidden by
+  // context menu action
+  if (GetTabInterface() && GetTabInterface()->GetContents() &&
+      GetTabInterface()->GetContents()->GetUserData(&kHiddenTabFlagKey)) {
+    views::ProposedLayout empty_layout;
+    empty_layout.host_size = gfx::Size(0, 0);
+    return empty_layout;
+  }
+
   const int width = size_bounds.width().value_or(
       VerticalTabStripRegionView::kUncollapsedMaxWidth);
   const int height =
@@ -919,7 +934,9 @@ views::BubbleAnchor VerticalTabView::GetAnchor() {
 }
 
 void VerticalTabView::ResetCollectionNode() {
-  CHECK(collection_node_);
+  if (!collection_node_) {
+    return;
+  }
 
   TabHoverCardController* hover_card_controller =
       collection_node_->GetController()->GetHoverCardController();
@@ -930,7 +947,7 @@ void VerticalTabView::ResetCollectionNode() {
 
   // Reset the active/selected/hovered states so the tab animates out without a
   // background.
-  active_ = false;
+  active_ = false;  // FIX: Added the trailing underscore
   selected_ = false;
 
   // Update the callbacks for the buttons so that we don't call anything that
@@ -1220,12 +1237,17 @@ bool VerticalTabView::IsInExpandOnHover(int width) const {
 }
 
 const tabs::TabInterface* VerticalTabView::GetTabInterface() const {
+  if (!collection_node_) {
+    return nullptr;
+  }
   return std::get<const tabs::TabInterface*>(collection_node_->GetNodeData());
 }
 
 void VerticalTabView::UpdateHoverCard(HoverCardAnchorTarget* target,
                                       int hover_card_update_type) {
-  CHECK(collection_node_);
+  if (!collection_node_) {
+    return;
+  }
 
   if (TabHoverCardController* hover_card_controller =
           collection_node_->GetController()->GetHoverCardController()) {

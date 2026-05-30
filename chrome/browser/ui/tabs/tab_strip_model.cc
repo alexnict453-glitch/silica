@@ -46,7 +46,9 @@
 #include "chrome/browser/lifetime/browser_shutdown.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/browser/reading_list/reading_list_model_factory.h"
+#include "chrome/browser/resource_coordinator/lifecycle_unit_state.mojom.h"
 #include "chrome/browser/resource_coordinator/tab_helper.h"
+#include "chrome/browser/resource_coordinator/tab_lifecycle_unit_external.h"
 #include "chrome/browser/send_tab_to_self/send_tab_to_self_util.h"
 #include "chrome/browser/ui/bookmarks/bookmark_utils.h"
 #include "chrome/browser/ui/browser.h"
@@ -120,6 +122,8 @@
 using base::UserMetricsAction;
 using content::WebContents;
 
+extern const char kHiddenTabFlagKey[];
+
 namespace {
 
 TabGroupModelFactory* factory_instance = nullptr;
@@ -161,6 +165,9 @@ bool ShouldForgetOpenersForTransition(ui::PageTransition transition) {
          ui::PageTransitionCoreTypeIs(transition,
                                       ui::PAGE_TRANSITION_AUTO_TOPLEVEL);
 }
+
+// FIX: Removed the unused HiddenTabFlag struct and kKey variable completely
+// from the anonymous namespace
 
 }  // namespace
 
@@ -2417,6 +2424,9 @@ bool TabStripModel::IsContextMenuCommandEnabled(
 
   switch (command_id) {
     case CommandNewTabToRight:
+    case CommandSleepTab:
+    case CommandHideTab:  // Enabled for user click
+      return true;
     case CommandCloseTab:
       return true;
 
@@ -2539,6 +2549,43 @@ void TabStripModel::ExecuteContextMenuCommand(int context_index,
                                 NewTabTypes::kNewTabEnumCount);
       delegate()->AddTabAt(GURL(), context_index + 1, true,
                            GetTabGroupForTab(context_index));
+      break;
+    }
+    case CommandSleepTab: {
+      content::WebContents* contents = GetWebContentsAt(context_index);
+      if (contents) {
+        // Query the tab's external lifecycle interface
+        auto* tab_lifecycle_unit_external =
+            resource_coordinator::TabLifecycleUnitExternal::FromWebContents(
+                contents);
+
+        // Execute the native urgent discard logic if valid
+        if (tab_lifecycle_unit_external) {
+          tab_lifecycle_unit_external->DiscardTab(
+              ::mojom::LifecycleUnitDiscardReason::URGENT);
+        }
+      }
+      break;
+    }
+
+      // FIX: Removed the duplicate local declaration block here entirely to
+      // prevent shadowing and switch-jump errors
+
+    case CommandHideTab: {
+      content::WebContents* contents = GetWebContentsAt(context_index);
+      if (contents) {
+        struct HiddenTabFlag : public base::SupportsUserData::Data {};
+        // FIX: Uses the globally declared kHiddenTabFlagKey address, avoiding
+        // the switch-jump compilation error
+        contents->SetUserData(&kHiddenTabFlagKey,
+                              std::make_unique<HiddenTabFlag>());
+        for (auto& observer : observers_) {
+          // FIX: Changed observer call to OnTabChangedAt with a
+          // tabs::TabInterface* first parameter to match modern Chromium API
+          observer.OnTabChangedAt(GetTabAtIndex(context_index), context_index,
+                                  TabChangeType::kAll);
+        }
+      }
       break;
     }
 
@@ -3037,7 +3084,7 @@ void TabStripModel::ExecuteAddToExistingGroupCommand(
 
   // If there are no groups to delete OR there is only one group that was found
   // to be deleted, but it is the group that is being added to then the there
-  // are no actual deletions occuring. Otherwise the group deletion must be
+  // are no actual deletions occurring. Otherwise the group deletion must be
   // confirmed.
   base::OnceCallback<void()> callback = base::BindOnce(
       [](TabStripModel* model, std::vector<tabs::TabInterface*> tabs,
@@ -4759,7 +4806,7 @@ void TabStripModel::TabGroupStateChanged(
   }
 
   if (new_group.has_value()) {
-    // Use IsEmpty() method as it relies on the tab_count_ maintained by  the
+    // Use IsEmpty() method as it relies on the tab_count_ maintained by the
     // TabGroup object. Any method that relies on the model for this would be
     // wrong since the model is already updated.
     const bool is_group_empty =
@@ -5007,7 +5054,7 @@ void TabStripModel::SetTabsPinned(std::vector<int> indices, bool pinned) {
   // forward and see if all the tabs in the split are in indices. If so, move
   // the whole split, otherwise move the tabs individually. Splits are
   // contiguous, so once we stop seeing a split, we will not see it again,
-  // therefore we dont have to worry about processing the same split twice.
+  // therefore we don't have to worry about processing the same split twice.
   size_t next_i;
   for (size_t i = 0; i < indices.size(); i = next_i) {
     next_i = i + 1;

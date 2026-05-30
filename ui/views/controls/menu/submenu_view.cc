@@ -803,6 +803,11 @@ void SubmenuView::SetBorderColorId(std::optional<ui::ColorId> color_id) {
   border_color_id_ = color_id;
 }
 
+void SubmenuView::OnPaintBackground(gfx::Canvas* canvas) {
+  // Left completely empty to ensure no parent theme color paints a solid
+  // background over our blurred container.
+}
+
 BEGIN_METADATA(SubmenuView)
 END_METADATA
 

@@ -133,14 +133,164 @@
 #include "services/network/throttling/throttling_network_interceptor.h"
 #include "services/network/trust_tokens/trust_token_request_helper.h"
 #include "services/network/trust_tokens/trust_token_url_loader_interceptor.h"
+// ... headers ...
 #include "services/network/url_loader_factory.h"
 #include "services/network/url_loader_util.h"
 #include "third_party/abseil-cpp/absl/container/inlined_vector.h"
 #include "url/origin.h"
 
-namespace network {
+// Added helper headers for the local hosts file blocklist
+#include <unordered_set>
 
+#include "base/files/file_path.h"
+#include "base/files/file_util.h"
+#include "base/no_destructor.h"
+#include "base/path_service.h"
+#include "base/strings/string_split.h"
+
+// --- BEGIN LIGHTWEIGHT BLOCKED LIST ---
 namespace {
+
+class BlocklistManager {
+ public:
+  static BlocklistManager* GetInstance() {
+    static base::NoDestructor<BlocklistManager> instance;
+    return instance.get();
+  }
+
+  BlocklistManager() { LoadBlocklist(); }
+
+  bool IsBlocked(const GURL& url) {
+    if (!url.is_valid()) {
+      return false;
+    }
+    // Explicitly construct std::string from std::string_view
+    std::string host(url.host());
+    if (host.empty()) {
+      return false;
+    }
+
+    // Direct check
+    if (blocked_domains_.count(host)) {
+      return true;
+    }
+
+    // Subdomain matching (e.g., if we block "doubleclick.net", also block
+    // "ads.doubleclick.net")
+    size_t pos = host.find('.');
+    while (pos != std::string::npos) {
+      std::string parent_domain = host.substr(pos + 1);
+      if (blocked_domains_.count(parent_domain)) {
+        return true;
+      }
+      pos = host.find('.', pos + 1);
+    }
+    return false;
+  }
+
+ private:
+  void LoadBlocklist() {
+    base::FilePath exe_path;
+    if (!base::PathService::Get(base::DIR_EXE, &exe_path)) {
+      return;
+    }
+    base::FilePath blocklist_file = exe_path.AppendASCII("blocked_hosts.txt");
+
+    std::string content;
+    // Graceful fallback if reading fails or is restricted by sandboxing
+    if (!base::ReadFileToString(blocklist_file, &content)) {
+      return;
+    }
+
+    // Single-pass, zero-allocation sliding index parser.
+    // Processes millions of domains without lagging startup.
+    std::string_view content_view(content);
+    size_t start = 0;
+    while (start < content_view.size()) {
+      size_t end = content_view.find('\n', start);
+      if (end == std::string_view::npos) {
+        end = content_view.size();
+      }
+
+      std::string_view line = content_view.substr(start, end - start);
+      start = end + 1;
+
+      // Inline trim whitespace and carriage returns
+      while (!line.empty() && (line.front() == ' ' || line.front() == '\t' ||
+                               line.front() == '\r')) {
+        line.remove_prefix(1);
+      }
+      while (!line.empty() && (line.back() == ' ' || line.back() == '\t' ||
+                               line.back() == '\r')) {
+        line.remove_suffix(1);
+      }
+
+      if (line.empty() || line[0] == '#') {
+        continue;
+      }
+
+      // Handle standard hosts layout: "0.0.0.0 domain.com"
+      std::string_view domain = line;
+      size_t space_pos = line.find_first_of(" \t");
+      if (space_pos != std::string_view::npos) {
+        std::string_view ip = line.substr(0, space_pos);
+        if (ip == "0.0.0.0" || ip == "127.0.0.1") {
+          domain = line.substr(space_pos);
+          while (!domain.empty() &&
+                 (domain.front() == ' ' || domain.front() == '\t')) {
+            domain.remove_prefix(1);
+          }
+        }
+      }
+
+      if (!domain.empty()) {
+        if (domain[0] == '.') {
+          domain.remove_prefix(1);
+        }
+        blocked_domains_.insert(base::ToLowerASCII(domain));
+      }
+    }
+  }
+
+  std::unordered_set<std::string> blocked_domains_;
+};
+
+bool IsTrackingOrAdUrl(const std::string& url_spec) {
+  static constexpr const char* kBlockList[] = {"google-analytics.com",
+                                               "doubleclick.net",
+                                               "telemetry",
+                                               "analytics",
+                                               "scorecardresearch.com",
+                                               "adnxs.com",
+                                               "quantserve.com",
+                                               "facebook.com/tr/",
+                                               "/pagead/",
+                                               "/ads/",
+                                               "youtube.com/api/stats/ads",
+                                               "youtube.com/ptracking",
+                                               "googlesyndication.com",
+                                               "s.youtube.com/api/stats/qoe?ad",
+                                               "google.com/pagead"};
+
+  for (const char* block_keyword : kBlockList) {
+    if (url_spec.find(block_keyword) != std::string::npos) {
+      return true;  // Match found: Block the request
+    }
+  }
+
+  // Also query our loaded blocked_hosts.txt list
+  GURL url(url_spec);
+  if (BlocklistManager::GetInstance()->IsBlocked(url)) {
+    return true;
+  }
+
+  return false;  // No match: Allow the request
+}
+}  // namespace
+// --- END LIGHTWEIGHT BLOCKED LIST ---
+
+namespace network {  // <--- This is the file's original, single namespace line.
+                     // Leave this and everything below it untouched!
 
 BASE_FEATURE(kDelayedCookieNotification, base::FEATURE_DISABLED_BY_DEFAULT);
 
@@ -152,6 +302,8 @@ constexpr size_t kBlockedBodyAllocationSize = 1;
 constexpr size_t kDiscardBufferSize = 128 * 1024;
 
 constexpr char kActivateStorageAccessHeader[] = "activate-storage-access";
+
+namespace {
 
 bool ShouldNotifyAboutCookie(net::CookieInclusionStatus status) {
   // Notify about cookies actually used, and those blocked by preferences ---
@@ -753,19 +905,38 @@ void URLLoader::ProcessOutboundSharedStorageInterceptor() {
 void URLLoader::ScheduleStart() {
   TRACE_EVENT("loading", "URLLoader::ScheduleStart",
               net::NetLogWithSourceToFlow(url_request_->net_log()));
+
+  // --- BEGIN NATIVE TRACKER BLOCKER ---
+  if (url_request_) {
+    std::string request_url = url_request_->url().spec();
+
+    // Check if the URL matches our built-in tracker block list
+    if (IsTrackingOrAdUrl(request_url)) {
+      // Defer calling NotifyCompleted so that URLLoader finishes initialization
+      // safely.
+      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+          FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
+                                    weak_ptr_factory_.GetWeakPtr(),
+                                    net::ERR_BLOCKED_BY_CLIENT));
+      return;
+    }
+  }
+  // --- END NATIVE TRACKER BLOCKER ---
+
   bool defer = false;
   if (resource_scheduler_client_) {
-    resource_scheduler_request_handle_ =
+  resource_scheduler_request_handle_ =
         resource_scheduler_client_->ScheduleRequest(
             !(options_ & mojom::kURLLoadOptionSynchronous), url_request_.get());
     resource_scheduler_request_handle_->set_resume_callback(
         base::BindOnce(&URLLoader::ResumeStart, base::Unretained(this)));
     resource_scheduler_request_handle_->WillStartRequest(&defer);
   }
-  if (defer)
+  if (defer) {
     url_request_->LogBlockedBy("ResourceScheduler");
-  else
+  } else {
     url_request_->Start();
+  }
 }
 
 URLLoader::~URLLoader() {

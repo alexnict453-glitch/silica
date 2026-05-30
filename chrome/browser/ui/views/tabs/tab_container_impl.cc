@@ -32,6 +32,8 @@
 #include "chrome/browser/ui/views/tabs/tab_style_views.h"
 #include "chrome/browser/ui/views/tabs/z_orderable_tab_container_element.h"
 #include "chrome/grit/theme_resources.h"
+#include "chrome/browser/ui/browser.h"
+#include "chrome/browser/ui/tabs/tab_strip_model.h"
 #include "components/tab_groups/tab_group_id.h"
 #include "ui/base/metadata/metadata_impl_macros.h"
 #include "ui/base/mojom/menu_source_type.mojom.h"
@@ -854,43 +856,77 @@ void TabContainerImpl::PaintChildren(const views::PaintInfo& paint_info) {
   // through creating a tab group and are not in a self-consistent state.
 
   UpdateZOrderCacheIfDirty();
+  bool needs_layout = false;
+
   for (const auto& child : z_ordered_children_cache_) {
+    // FIX: Directly intercept visibility in PaintChildren to hide tabs
+    // instantly on key change
+    if (views::IsViewClass<Tab>(child.view())) {
+      Tab* tab = views::AsViewClass<Tab>(child.view());
+      bool should_be_visible = ShouldTabBeVisible(tab);
+
+      if (tab->GetVisible() != should_be_visible) {
+        needs_layout = true;
+      }
+
+      if (!should_be_visible) {
+        continue;  // Do not paint the hidden tab!
+      }
+    }
     child.view()->Paint(paint_info);
+  }
+
+  // FIX: Force asynchronous layout to re-collapse empty space without
+  // disrupting the paint pipeline
+  if (needs_layout) {
+    base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+        FROM_HERE, base::BindOnce(&TabContainerImpl::AnimateToIdealBounds,
+                                  base::Unretained(this)));
   }
 }
 
 gfx::Size TabContainerImpl::GetMinimumSize() const {
-  // During animations, our minimum width tightly hugs the current bounds of our
-  // children.
+  // Prevent clipping the right-most visible tab if the last tab in the list is
+  // hidden
+  int max_right = 0;
+  for (int i = 0; i < GetTabCount(); ++i) {
+    max_right = std::max(max_right, tabs_view_model_.ideal_bounds(i).right());
+  }
+
   std::optional<int> minimum_width = GetMidAnimationTrailingX();
   if (!minimum_width.has_value()) {
-    // Otherwise, the tabstrip is in a steady state, so we want to use the width
-    // that would be spanned by our children after animations complete. This
-    // allows tabs to resize directly with window resizes instead of mediating
-    // that through animation.
     minimum_width = override_available_width_for_tabs_.value_or(
         layout_helper_->CalculateMinimumWidth());
   }
 
-  return gfx::Size(minimum_width.value(),
+  constexpr int kFallbackMinWidth = 120;
+  const int final_width =
+      std::max({kFallbackMinWidth, minimum_width.value_or(0), max_right});
+
+  return gfx::Size(final_width,
                    GetLayoutConstant(LayoutConstant::kTabStripHeight));
 }
 
 gfx::Size TabContainerImpl::CalculatePreferredSize(
     const views::SizeBounds& available_size) const {
-  // During animations, our preferred width tightly hugs the current bounds of
-  // our children.
+  // Prevent clipping the right-most visible tab if the last tab in the list is
+  // hidden
+  int max_right = 0;
+  for (int i = 0; i < GetTabCount(); ++i) {
+    max_right = std::max(max_right, tabs_view_model_.ideal_bounds(i).right());
+  }
+
   std::optional<int> preferred_width = GetMidAnimationTrailingX();
   if (!preferred_width.has_value()) {
-    // Otherwise, the tabstrip is in a steady state, so we want to use the width
-    // that would be spanned by our children after animations complete. This
-    // allows tabs to resize directly with window resizes instead of mediating
-    // that through animation.
     preferred_width = override_available_width_for_tabs_.value_or(
         layout_helper_->CalculatePreferredWidth());
   }
 
-  return gfx::Size(preferred_width.value(),
+  constexpr int kFallbackMinWidth = 120;
+  const int final_width =
+      std::max({kFallbackMinWidth, preferred_width.value_or(0), max_right});
+
+  return gfx::Size(final_width,
                    GetLayoutConstant(LayoutConstant::kTabStripHeight));
 }
 
@@ -1147,14 +1183,49 @@ void TabContainerImpl::AnimateTabSlotViewTo(TabSlotView* tab_slot_view,
       std::make_unique<TabSlotAnimationDelegate>(this, tab_slot_view));
 }
 
+
+extern const char kHiddenTabFlagKey[];
+
 void TabContainerImpl::UpdateIdealBounds() {
-  // No tabs = no width. This can happen during startup and shutdown, or, if
-  // CompoundTabContainer is in use, all the tabs are in the other TabContainer.
   if (GetTabCount() == 0) {
     return;
   }
-
   layout_helper_->UpdateIdealBounds(CalculateAvailableWidthForTabs());
+  int offset = 0;
+  for (int i = 0; i < GetTabCount(); ++i) {
+    Tab* tab = GetTabAtModelIndex(i);
+    gfx::Rect bounds = tabs_view_model_.ideal_bounds(i);
+
+    // Read the explicit hidden tab flag safely via the tab's controller
+    bool is_hidden = false;
+    if (tab->controller()) {
+      auto* browser_interface = tab->controller()->GetBrowserWindowInterface();
+      if (browser_interface) {
+        auto* tab_strip_model = browser_interface->GetTabStripModel();
+        // CRITICAL FIX: Ensure index is valid before querying the model
+        // to prevent out-of-bounds crashes during tab closure animations
+        if (tab_strip_model && tab_strip_model->ContainsIndex(i)) {
+          auto* tab_interface = tab_strip_model->GetTabAtIndex(i);
+          if (tab_interface && tab_interface->GetContents() &&
+              tab_interface->GetContents()->GetUserData(&kHiddenTabFlagKey)) {
+            is_hidden = true;
+          }
+        }
+      }
+    }
+
+    if (is_hidden || !ShouldTabBeVisible(tab)) {
+      offset += bounds.width() - tab->tab_style()->GetTabOverlap();
+      bounds.set_width(0);
+      bounds.set_x(bounds.x() - offset);
+      tab->SetVisible(
+          false);  // Physically hide it so Skia doesn't draw a ghost line
+    } else {
+      bounds.set_x(bounds.x() - offset);
+      tab->SetVisible(true);
+    }
+    tabs_view_model_.set_ideal_bounds(i, bounds);
+  }
 }
 
 void TabContainerImpl::SnapToIdealBounds() {
@@ -1549,6 +1620,23 @@ Tab* TabContainerImpl::FindTabHitByPoint(const gfx::Point& point) {
 }
 
 bool TabContainerImpl::ShouldTabBeVisible(const Tab* tab) const {
+  // Explicitly remove hidden tabs from the visual rendering hierarchy
+  std::optional<int> model_index = GetModelIndexOf(tab);
+  if (model_index.has_value() && tab_slot_controller_->GetBrowser()) {
+    auto* tab_strip_model =
+        tab_slot_controller_->GetBrowser()->tab_strip_model();
+    // CRITICAL FIX: Ensure index is valid before querying the model
+    // to prevent out-of-bounds crashes during tab closure animations
+    if (tab_strip_model &&
+        tab_strip_model->ContainsIndex(model_index.value())) {
+      content::WebContents* contents =
+          tab_strip_model->GetWebContentsAt(model_index.value());
+      if (contents && contents->GetUserData(&kHiddenTabFlagKey)) {
+        return false;
+      }
+    }
+  }
+
   // Detached tabs should always be invisible (as they close).
   if (tab->detached()) {
     return false;

@@ -749,6 +749,8 @@ class TabStripModel {
   enum ContextMenuCommand {
     CommandFirst,
     CommandNewTabToRight,
+    CommandSleepTab,
+    CommandHideTab,
     CommandReload,
     CommandDuplicate,
     CommandCloseTab,

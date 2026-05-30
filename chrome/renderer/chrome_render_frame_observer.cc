@@ -67,6 +67,7 @@
 #include "third_party/blink/public/web/web_local_frame.h"
 #include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/public/web/web_node.h"
+#include "third_party/blink/public/web/web_script_source.h"
 #include "third_party/blink/public/web/web_security_policy.h"
 #include "third_party/blink/public/web/web_view.h"
 #include "third_party/libwebp/src/src/webp/decode.h"
@@ -353,6 +354,173 @@ void ChromeRenderFrameObserver::DidClearWindowObject() {
 #if BUILDFLAG(ENABLE_GUEST_VIEW) && !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
   guest_view::SlimWebViewBindings::MaybeInstall(*render_frame());
 #endif  // BUILDFLAG(ENABLE_GUEST_VIEW) && !BUILDFLAG(ENABLE_EXTENSIONS_CORE)
+}
+
+void ChromeRenderFrameObserver::DidCreateScriptContext(
+    v8::Local<v8::Context> context,
+    int32_t world_id) {
+  // Synchronously execute our script inside the Main DOM context (world_id = 0)
+  // before any other script on the webpage has parsed or executed.
+  if (world_id == 0) {
+    blink::WebLocalFrame* frame = render_frame()->GetWebFrame();
+    if (frame) {
+      const char* ad_skip_js = R"JS(
+        (function() {
+          if (!window.location.host.includes("youtube.com")) return;
+          if (window.__ytAdBlockActive) return;
+          window.__ytAdBlockActive = true;
+
+          // 2. Helper to strip ad variables out of JSON payloads
+          // Setting properties to empty arrays ([]) avoids null/undefined dereference exceptions.
+          const stripAds = (obj) => {
+            if (!obj || typeof obj !== 'object') return obj;
+            try {
+              if (obj.playerResponse) {
+                obj.playerResponse.adPlacements = [];
+                obj.playerResponse.playerAds = [];
+                if (obj.playerResponse.adSlots) {
+                  obj.playerResponse.adSlots = [];
+                }
+              }
+              if (obj.adPlacements) obj.adPlacements = [];
+              if (obj.playerAds) obj.playerAds = [];
+              if (obj.adSlots) obj.adSlots = [];
+              if (obj.overlay && obj.overlay.playerOverlayRenderer) {
+                obj.overlay.playerOverlayRenderer.playerAds = [];
+              }
+            } catch(e) {}
+            return obj;
+          };
+
+          // 3. Intercept Initial Global Player Response Config (On Cold Page Loads)
+          let _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
+          Object.defineProperty(window, 'ytInitialPlayerResponse', {
+            get: () => _ytInitialPlayerResponse,
+            set: (val) => { _ytInitialPlayerResponse = stripAds(val); }
+          });
+          if (window.ytInitialPlayerResponse) {
+            window.ytInitialPlayerResponse = stripAds(window.ytInitialPlayerResponse);
+          }
+
+          let _ytInitialData = window.ytInitialData;
+          Object.defineProperty(window, 'ytInitialData', {
+            get: () => _ytInitialData,
+            set: (val) => { _ytInitialData = stripAds(val); }
+          });
+          if (window.ytInitialData) {
+            window.ytInitialData = stripAds(window.ytInitialData);
+          }
+
+          // 4. Intercept Fetch API requests (On Dynamic Player/Video Transitions)
+          // Resolves infinite loading by protecting against stream lock and double-fetching.
+          const origFetch = window.fetch;
+          window.fetch = async function(...args) {
+            const reqUrl = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
+            if (reqUrl.includes('/youtubei/v1/player') || reqUrl.includes('/youtubei/v1/next')) {
+              let response;
+              try {
+                response = await origFetch.apply(this, args);
+                const clone = response.clone();
+                const text = await clone.text();
+                const json = JSON.parse(text);
+                const cleaned = stripAds(json);
+                return new Response(JSON.stringify(cleaned), {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers
+                });
+              } catch (e) {
+                // Return the original response to avoid breaking the player if JSON parsing fails
+                if (response) {
+                  return response;
+                }
+              }
+            }
+            return origFetch.apply(this, args);
+          };
+
+          // 4. Intercept XMLHttpRequest requests
+          const origOpen = XMLHttpRequest.prototype.open;
+          XMLHttpRequest.prototype.open = function(method, url) {
+            this._reqUrl = url;
+            return origOpen.apply(this, arguments);
+          };
+          const origGetText = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'responseText');
+          if (origGetText) {
+            Object.defineProperty(XMLHttpRequest.prototype, 'responseText', {
+              get: function() {
+                const text = origGetText.get.call(this);
+                if (this._reqUrl && (this._reqUrl.includes('/youtubei/v1/player') || this._reqUrl.includes('/youtubei/v1/next'))) {
+                  try {
+                    const json = JSON.parse(text);
+                    return JSON.stringify(stripAds(json));
+                  } catch(e) {}
+                }
+                return text;
+              }
+            });
+          }
+
+          // 5. CSS Rules to instantly hide UI ad layout elements
+          // Wrapped inside a check-and-retry helper to wait safely for documentElement (<html>) to exist
+          const injectStyle = () => {
+            if (document.documentElement) {
+              const style = document.createElement('style');
+              style.textContent = `
+                ytd-ad-slot-renderer, ytd-companion-ad-renderer, ytd-promoted-sparkles-web-renderer,
+                ytd-promoted-video-renderer, #masthead-ad, #player-ads, .ytp-ad-overlay-container,
+                .ytp-ad-message-container, .ytp-ad-image-overlay, .ytp-ad-text-overlay,
+                #rendering-content.ytd-ad-slot-renderer, .ytd-carousel-ad-renderer-wrapper,
+                ytd-display-ad-renderer, ytd-statement-banner-renderer, .ad-showing, .ad-interrupting,
+                ytd-action-companion-ad-renderer, ytd-banner-promo-renderer-background,
+                .video-ads, .ytp-ad-module, tp-yt-paper-dialog:has(yt-playability-error-supported-renderers) { 
+                  display: none !important; 
+                }
+              `;
+              document.documentElement.appendChild(style);
+            } else {
+              setTimeout(injectStyle, 1);
+            }
+          };
+          injectStyle();
+
+          // 6. Fast Player Ad-Skipping Fallback (For un-intercepted dynamic elements)
+          const skipYouTubeAd = () => {
+            const video = document.querySelector('video');
+            const adShowing = document.querySelector('.ad-showing, .ad-interrupting');
+            if (video && adShowing) {
+              video.playbackRate = 16.0;
+              video.muted = true;
+              if (!isNaN(video.duration) && video.duration > 0) {
+                 video.currentTime = video.duration - 0.1;
+              }
+            }
+            const skipButtons = document.querySelectorAll('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-skip-ad-button-modern');
+            skipButtons.forEach(b => {
+              b.click();
+              b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
+            });
+          };
+
+          // Safely start MutationObserver only when documentElement exists
+          const startObserver = () => {
+            if (document.documentElement) {
+              const observer = new MutationObserver(skipYouTubeAd);
+              observer.observe(document.documentElement, { childList: true, subtree: true });
+            } else {
+              setTimeout(startObserver, 1);
+            }
+          };
+          startObserver();
+
+          setInterval(skipYouTubeAd, 500);
+        })();
+      )JS";
+
+      frame->ExecuteScript(
+          blink::WebScriptSource(blink::WebString::FromUtf8(ad_skip_js)));
+    }
+  }
 }
 
 void ChromeRenderFrameObserver::DidMeaningfulLayout(

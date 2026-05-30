@@ -1345,8 +1345,13 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
         net::HttpAuthPreferences::DISALLOW_DEFAULT_CREDENTIALS;
   }
 
-  network_context_params->cookie_manager_params =
-      CreateCookieManagerParams(profile_, *cookie_settings_);
+if (network_context_params->file_paths) {
+    // Completely resetting file_paths forces all network databases (cookies,
+    // cache, etc.) to run in-memory only, preventing network_sandbox.cc from
+    // attempting folder migrations.
+    network_context_params->file_paths.reset();
+  }
+
 
   // Configure on-disk storage for non-OTR profiles. OTR profiles just use
   // default behavior (in memory storage, default sizes).
@@ -1379,8 +1384,7 @@ void ProfileNetworkContextService::ConfigureNetworkContextParamsInternal(
     // change.
     network_context_params->file_paths->http_server_properties_file_name =
         base::FilePath(chrome::kNetworkPersistentStateFilename);
-    network_context_params->file_paths->cookie_database_name =
-        base::FilePath(chrome::kCookieFilename);
+    network_context_params->file_paths->cookie_database_name = base::FilePath();
 
     g_browser_process->system_network_context_manager()
         ->AddCookieEncryptionManagerToNetworkContextParams(

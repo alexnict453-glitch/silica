@@ -293,40 +293,50 @@ class MenuButtonRowView : public HoverButton {
     // over this, we paint the highlight directly to the background.
     views::InkDrop::Get(this)->SetMode(views::InkDropHost::InkDropMode::OFF);
     title()->SetEnabledColor(ui::kColorMenuItemForeground);
-    title()->SetBackgroundColor(kColorProfileMenuBackground);
+    title()->SetBackgroundColor(SK_ColorTRANSPARENT);
+
+    // FIX: Force layer-backed painting to prevent sticky hover residues on
+    // transparent widgets
+    SetPaintToLayer();
+    if (layer()) {
+      layer()->SetFillsBoundsOpaquely(false);
+    }
   }
   ~MenuButtonRowView() override = default;
 
-  // Note: only focus handling is necessary, because `HoverButton` automatically
-  // requests focus when hovered.
-  //
-  // HoverButton:
   void OnFocus() override {
     HoverButton::OnFocus();
     title()->SetEnabledColor(ui::kColorMenuItemForegroundSelected);
-    title()->SetBackgroundColor(ui::kColorMenuItemBackgroundSelected);
+    title()->SetBackgroundColor(
+        SK_ColorTRANSPARENT);  // FIX: Ensure text background stays transparent
     if (auto* feature_icon =
             views::AsViewClass<FeatureButtonIconView>(icon_view())) {
       feature_icon->UpdateColor(ui::kColorMenuItemForegroundSelected);
     }
+    SchedulePaint();  // FIX: Clear overlapping highlights on focus change
   }
 
   void OnBlur() override {
     HoverButton::OnBlur();
     title()->SetEnabledColor(ui::kColorMenuItemForeground);
-    title()->SetBackgroundColor(kColorProfileMenuBackground);
+    title()->SetBackgroundColor(
+        SK_ColorTRANSPARENT);  // FIX: Ensure text background stays transparent
     if (auto* feature_icon =
             views::AsViewClass<FeatureButtonIconView>(icon_view())) {
       feature_icon->UpdateColor(ui::kColorIcon);
     }
+    SchedulePaint();  // FIX: Force background paint update on blur
   }
 
   void OnPaintBackground(gfx::Canvas* canvas) override {
     if (HasFocus()) {
       cc::PaintFlags flags;
       flags.setAntiAlias(true);
-      flags.setColor(
-          GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected));
+      // FIX: Apply transparency (45/255) to the selection background so the
+      // blurred glass remains visible
+      SkColor base_color =
+          GetColorProvider()->GetColor(ui::kColorMenuItemBackgroundSelected);
+      flags.setColor(SkColorSetA(base_color, 45));
       canvas->DrawRect(GetLocalBounds(), flags);
     }
   }
@@ -413,8 +423,23 @@ ProfileMenuViewBase::ProfileMenuViewBase(views::BubbleAnchor anchor_element,
   RegisterWindowClosingCallback(base::BindOnce(
       &ProfileMenuViewBase::OnWindowClosing, base::Unretained(this)));
 
-  SetBackground(views::CreateSolidBackground(kColorProfileMenuBackground));
+  // DISABLE THE BUBBLE SHADOW: This completely removes the bottom halo outline
+  set_shadow(views::BubbleBorder::NO_SHADOW);
+
+  // Enable layers and background blur for the entire profile menu bubble
+  SetPaintToLayer();
+  if (layer()) {
+    layer()->SetFillsBoundsOpaquely(false);
+    layer()->SetBackgroundBlur(25);
+  }
+  // Soft translucent dark green base background (ARGB)
+  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 20, 30, 20)));
+
+  // Forces the underlying BubbleFrameView to be transparent initially
+  SetBackgroundColor(SK_ColorTRANSPARENT);
 }
+
+
 
 ProfileMenuViewBase::~ProfileMenuViewBase() = default;
 
@@ -468,10 +493,14 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
       gfx::RoundedCornersF(views::LayoutProvider::Get()->GetCornerRadiusMetric(
           views::Emphasis::kHigh)));
 
+  // ADD THIS: Prevent the layer from rendering as an opaque black box!
+  identity_info_container_->layer()->SetFillsBoundsOpaquely(false);
+
   // No need to set rounded corners on the background, because the container
   // is painted in a layer that has rounded corners already.
+  // Set to a translucent card background to preserve the blurred backdrop
   identity_info_container_->SetBackground(
-      views::CreateSolidBackground(kColorProfileMenuIdentityInfoBackground));
+      views::CreateSolidBackground(SkColorSetARGB(70, 10, 15, 10)));
 
   // Space around the rectangle, between the rectangle and the menu edge.
   identity_info_container_->SetProperty(views::kMarginsKey,
@@ -793,13 +822,23 @@ void ProfileMenuViewBase::Reset() {
       components->AddChildView(std::make_unique<views::View>());
   first_profile_button_ = nullptr;
 
-  // Create a scroll view to hold the components.
+// Create a scroll view to hold the components.
   auto scroll_view = std::make_unique<views::ScrollView>();
   scroll_view->SetHorizontalScrollBarMode(
       views::ScrollView::ScrollBarMode::kDisabled);
   // TODO(crbug.com/41406562): it's a workaround for the crash.
   scroll_view->SetDrawOverflowIndicator(false);
   scroll_view->ClipHeightTo(0, GetMaxHeight());
+
+  // Clear the main ScrollView background
+  scroll_view->SetBackground(nullptr);
+
+  // Clear all interior structural views (including the private Viewport)
+  // to prevent solid themed colors from blocking the glass blur layer
+  for (views::View* child : scroll_view->children()) {
+    child->SetBackground(nullptr);
+  }
+
   scroll_view->SetContents(std::move(components));
 
   // Create a table layout to set the menu width.
@@ -862,6 +901,13 @@ std::unique_ptr<HoverButton> ProfileMenuViewBase::CreateMenuRowButton(
                           base::Unretained(this), std::move(action)),
       std::move(icon_view), text);
 }
+
+void ProfileMenuViewBase::OnThemeChanged() {
+  views::BubbleDialogDelegateView::OnThemeChanged();
+  // Force background transparency to persist after theme engine updates [1]
+  SetBackgroundColor(SK_ColorTRANSPARENT);
+}
+
 
 BEGIN_METADATA(ProfileMenuViewBase)
 END_METADATA

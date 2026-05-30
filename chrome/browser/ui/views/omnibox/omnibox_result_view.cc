@@ -197,6 +197,8 @@ OmniboxResultView::OmniboxResultView(OmniboxPopupViewViews* popup_view,
 
   selection_indicator_ =
       AddChildView(std::make_unique<OmniboxResultSelectionIndicator>());
+  selection_indicator_->SetVisible(
+      false);  // Hide the blue bar for a cleaner look
 
   local_answer_header_and_suggestion_and_buttons_ =
       AddChildView(std::make_unique<views::View>());

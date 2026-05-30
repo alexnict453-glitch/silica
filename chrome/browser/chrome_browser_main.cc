@@ -9,6 +9,9 @@
 #include <tuple>
 #include <utility>
 
+#include "base/command_line.h"
+
+
 #include "base/at_exit.h"
 #include "base/base_switches.h"
 #include "base/check.h"
@@ -1002,6 +1005,16 @@ int ChromeBrowserMainParts::PreEarlyInitialization() {
 }
 
 void ChromeBrowserMainParts::PostEarlyInitialization() {
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
+  std::string enabled_features =
+      command_line->GetSwitchValueASCII("enable-features");
+  if (enabled_features.empty()) {
+    command_line->AppendSwitchASCII("enable-features", "VerticalTabs");
+  } else if (enabled_features.find("VerticalTabs") == std::string::npos) {
+    command_line->AppendSwitchASCII("enable-features",
+                                    enabled_features + ",VerticalTabs");
+  }
+
   TRACE_EVENT0("startup", "ChromeBrowserMainParts::PostEarlyInitialization");
   for (auto& chrome_extra_part : chrome_extra_parts_) {
     chrome_extra_part->PostEarlyInitialization();

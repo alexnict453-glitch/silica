@@ -50,6 +50,8 @@
 #include "ui/views/view_utils.h"
 #include "ui/views/widget/widget.h"
 
+extern const char kHiddenTabFlagKey[];
+
 namespace {
 constexpr int kTabVerticalPadding = 2;
 constexpr int kGroupLineWidth = 2;
@@ -63,6 +65,28 @@ const TabGroup* GetTabGroupFromNode(TabCollectionNode* node) {
   return static_cast<const tabs::TabGroupTabCollection*>(
              std::get<const tabs::TabCollection*>(node->GetNodeData()))
       ->GetTabGroup();
+}
+
+// Helper to determine if a group child view represents an explicitly hidden tab
+bool IsTabHidden(const views::View* child_view) {
+  if (!child_view) {
+    return false;
+  }
+  if (auto* tab_view = views::AsViewClass<VerticalTabView>(child_view)) {
+    if (tab_view->collection_node()) {
+      if (std::holds_alternative<const tabs::TabInterface*>(
+              tab_view->collection_node()->GetNodeData())) {
+        const tabs::TabInterface* tab_interface =
+            std::get<const tabs::TabInterface*>(
+                tab_view->collection_node()->GetNodeData());
+        if (tab_interface && tab_interface->GetContents() &&
+            tab_interface->GetContents()->GetUserData(&kHiddenTabFlagKey)) {
+          return true;
+        }
+      }
+    }
+  }
+  return false;
 }
 }  // namespace
 
@@ -173,6 +197,14 @@ views::ProposedLayout VerticalTabGroupView::CalculateProposedLayout(
   // Layout children in order. Children will have their preferred height and
   // fill available width.
   for (auto* child : children) {
+    // If the child view represents a hidden tab or reports an empty height,
+    // bypass layout calculations
+    if (!child->GetVisible() || IsTabHidden(child) ||
+        child->GetPreferredSize(size_bounds).height() == 0) {
+      layouts.child_layouts.emplace_back(child, false, gfx::Rect());
+      continue;
+    }
+
     gfx::Rect bounds = gfx::Rect(child->GetPreferredSize(size_bounds));
 
     auto drag_data = GetVisualDataForDraggedView(*child);
@@ -314,8 +346,9 @@ std::unique_ptr<views::View> VerticalTabGroupView::DetachChildView(
     views::View* child_view) {
   if (IsCollapsed()) {
     // The child views are invisible in collapsed state. When child views
-    // are detached from the group while collapsed, reset its visibility.
-    child_view->SetVisible(true);
+    // are detached from the group while collapsed, reset its visibility if not
+    // hidden.
+    child_view->SetVisible(!IsTabHidden(child_view));
   }
   return RemoveChildViewT(child_view);
 }
@@ -363,7 +396,12 @@ void VerticalTabGroupView::UpdateChildVisibilityForCollapseState(
   }
   group_line_->SetVisible(!collapsed);
   for (auto* child : collection_node_->GetDirectChildren()) {
-    child->SetVisible(!collapsed);
+    if (collapsed) {
+      child->SetVisible(false);
+    } else {
+      // Keep hidden tabs invisible when expanding the group
+      child->SetVisible(!IsTabHidden(child));
+    }
   }
 }
 
@@ -416,7 +454,11 @@ VerticalTabGroupView::GetLinkDropIndex(const gfx::Point& loc_in_group) {
 
   for (const auto& child_node : collection_node_->children()) {
     auto* view = child_node->view();
-    CHECK(view);
+
+    // FIX: Removed CHECK(view) to safely skip closing/animating-out views
+    if (!view) {
+      continue;
+    }
     if (loc_in_group.y() > view->bounds().bottom()) {
       continue;
     }

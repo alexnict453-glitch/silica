@@ -200,6 +200,8 @@ class VIEWS_EXPORT SubmenuView : public View,
   // View method. Overridden to schedule a paint. We do this so that when
   // scrolling occurs, everything is repainted correctly.
   void OnBoundsChanged(const gfx::Rect& previous_bounds) override;
+  // Add this line inside the SubmenuView class declaration in submenu_view.h:
+  void OnPaintBackground(gfx::Canvas* canvas) override;
 
   void ChildPreferredSizeChanged(View* child) override;
   void ViewHierarchyChanged(

@@ -35,14 +35,24 @@
 #include "ui/views/view_class_properties.h"
 #include "ui/views/view_utils.h"
 
-class VerticalTabStripView::ActivatedViewTracker : public views::ViewObserver {
+extern const char kHiddenTabFlagKey[];
+
+// Tracker to monitor target focus changes and handle model observation safely
+class VerticalTabStripView::ActivatedViewTracker
+    : public views::ViewObserver,
+      public TabStripModelObserver {
  public:
-  ActivatedViewTracker() = default;
+  explicit ActivatedViewTracker(VerticalTabStripView* outer_view)
+      : outer_view_(outer_view) {}
   ActivatedViewTracker(const ActivatedViewTracker&) = delete;
   ActivatedViewTracker& operator=(const ActivatedViewTracker&) = delete;
-  ~ActivatedViewTracker() override = default;
+  ~ActivatedViewTracker() override {
+    if (model_) {
+      model_->RemoveObserver(this);
+    }
+  }
 
-  // ViewObserver:
+  // views::ViewObserver:
   void OnViewIsDeleting(views::View* observed_view) override {
     SetView(nullptr);
   }
@@ -54,6 +64,68 @@ class VerticalTabStripView::ActivatedViewTracker : public views::ViewObserver {
   }
   void OnViewPreferredSizeChanged(views::View* observed_view) override {
     CheckTrackedViewHeight();
+  }
+
+  // TabStripModelObserver:
+  void OnTabStripModelChanged(
+      TabStripModel* tab_strip_model,
+      const TabStripModelChange& change,
+      const TabStripSelectionChange& selection) override {
+    UpdateTabVisibilityAndLayout();
+  }
+
+  void OnTabChangedAt(tabs::TabInterface* tab,
+                      int index,
+                      TabChangeType change_type) override {
+    UpdateTabVisibilityAndLayout();
+  }
+
+  void ObserveModel(TabStripModel* model) {
+    if (model_ == model) {
+      return;
+    }
+    if (model_) {
+      model_->RemoveObserver(this);
+    }
+    model_ = model;
+    if (model_) {
+      model_->AddObserver(this);
+    }
+  }
+
+  void UpdateTabVisibilityAndLayout() {
+    if (!outer_view_ || !outer_view_->collection_node_ || !model_) {
+      return;
+    }
+
+    bool changed = false;
+    for (int i = 0; i < model_->count(); ++i) {
+      content::WebContents* contents = model_->GetWebContentsAt(i);
+      const tabs::TabInterface* tab_interface = model_->GetTabAtIndex(i);
+      if (contents && tab_interface) {
+        TabCollectionNode* node =
+            outer_view_->collection_node_->GetNodeForHandle(
+                tab_interface->GetHandle());
+        if (node && node->view()) {
+          bool is_hidden = contents->GetUserData(&kHiddenTabFlagKey) != nullptr;
+          if (node->view()->GetVisible() == is_hidden) {
+            node->view()->SetVisible(!is_hidden);
+            changed = true;
+          }
+        }
+      }
+    }
+
+    // Force full container invalidation to collapse layouts instantly.
+    if (changed) {
+      if (outer_view_->pinned_tabs_container_view_) {
+        outer_view_->pinned_tabs_container_view_->InvalidateLayout();
+      }
+      if (outer_view_->unpinned_tabs_container_view_) {
+        outer_view_->unpinned_tabs_container_view_->InvalidateLayout();
+      }
+      outer_view_->InvalidateLayout();
+    }
   }
 
   void SetView(views::View* view) {
@@ -94,11 +166,13 @@ class VerticalTabStripView::ActivatedViewTracker : public views::ViewObserver {
   raw_ptr<views::View> view_ = nullptr;
   base::OnceClosure on_reached_preferred_height_cb_;
   base::ScopedObservation<View, ViewObserver> observation_{this};
+  raw_ptr<VerticalTabStripView> outer_view_ = nullptr;
+  raw_ptr<TabStripModel> model_ = nullptr;
 };
 
 VerticalTabStripView::VerticalTabStripView(TabCollectionNode* collection_node)
     : collection_node_(collection_node),
-      activated_view_tracker_(std::make_unique<ActivatedViewTracker>()) {
+      activated_view_tracker_(std::make_unique<ActivatedViewTracker>(this)) {
   SetLayoutManager(std::make_unique<views::DelegatingLayoutManager>(this));
   SetProperty(views::kElementIdentifierKey, kTabStripElementId);
 
@@ -220,10 +294,7 @@ views::ProposedLayout VerticalTabStripView::CalculateProposedLayout(
                                        gfx::Rect());
   }
 
-  // Place the unpinned container using the entire available width, we do not
-  // inset the x value by |region_horizontal_padding| here because, when the tab
-  // strip is collapsed, tab groups need to draw the group colored line in this
-  // space.
+  // Place the unpinned container using the entire available width.
   gfx::Rect unpinned_container_bounds(0, y, size_bounds.width().value(),
                                       unpinned_preferred_height);
   if (size_bounds.height().is_bounded()) {
@@ -282,7 +353,6 @@ void VerticalTabStripView::OnWidgetActivationChanged(views::Widget* widget,
 void VerticalTabStripView::OnWidgetVisibilityChanged(views::Widget* widget,
                                                      bool visible) {
   if (collection_node_ && visible && is_first_window_presentation_) {
-    // Only scroll-in the active tab for the first window presentation.
     is_first_window_presentation_ = false;
     OnActiveTabChanged(collection_node_->GetController()->GetActiveTab());
   }
@@ -291,8 +361,11 @@ void VerticalTabStripView::OnWidgetVisibilityChanged(views::Widget* widget,
 void VerticalTabStripView::OnActiveTabChanged(
     const tabs::TabInterface* active_tab) {
   if (collection_node_ && active_tab) {
-    // Expand group if the activated tab is within a collapsed group unless
-    // we are header dragging the collapsed group.
+    TabStripModel* model = const_cast<TabStripModel*>(
+        active_tab->GetBrowserWindowInterface()->GetTabStripModel());
+    activated_view_tracker_->ObserveModel(model);
+    activated_view_tracker_->UpdateTabVisibilityAndLayout();
+
     if (active_tab->GetGroup().has_value() &&
         !collection_node_->GetController()->GetDragHandler().IsDragging()) {
       TabCollectionNode* group_node = collection_node_->GetNodeForHandle(
@@ -301,34 +374,39 @@ void VerticalTabStripView::OnActiveTabChanged(
               ->group_model()
               ->GetTabGroup(active_tab->GetGroup().value())
               ->GetCollectionHandle());
-      CHECK(group_node);
 
-      auto* group_view =
-          views::AsViewClass<VerticalTabGroupView>(group_node->view());
-      if (group_view && group_view->IsCollapsed()) {
-        group_view->ToggleCollapsedState(
-            ToggleTabGroupCollapsedStateOrigin::kMenuAction);
+      if (group_node) {
+        auto* group_view =
+            views::AsViewClass<VerticalTabGroupView>(group_node->view());
+        if (group_view && group_view->IsCollapsed()) {
+          group_view->ToggleCollapsedState(
+              ToggleTabGroupCollapsedStateOrigin::kMenuAction);
+        }
       }
     }
 
-    // Scroll to the activated tab if it isn't in the visible viewport.
     TabCollectionNode* activated_node =
         collection_node_->GetNodeForHandle(active_tab->GetHandle());
-    CHECK(activated_node);
+
+    if (!activated_node || !activated_node->view()) {
+      return;
+    }
     views::View* const activated_node_view = activated_node->view();
     activated_view_tracker_->SetView(activated_node_view);
 
-    // Views must either be in the pinned or unpinned view trees.
-    DCHECK_NE(pinned_tabs_container_view_->Contains(activated_node_view),
-              unpinned_tabs_container_view_->Contains(activated_node_view));
+    bool in_pinned = pinned_tabs_container_view_ &&
+                     pinned_tabs_container_view_->Contains(activated_node_view);
+    bool in_unpinned =
+        unpinned_tabs_container_view_ &&
+        unpinned_tabs_container_view_->Contains(activated_node_view);
+
+    if (!in_pinned && !in_unpinned) {
+      return;
+    }
 
     views::ScrollView* const target_scroll_view =
-        pinned_tabs_container_view_->Contains(activated_node_view)
-            ? pinned_tabs_scroll_view_
-            : unpinned_tabs_scroll_view_;
+        in_pinned ? pinned_tabs_scroll_view_ : unpinned_tabs_scroll_view_;
 
-    // Wait for the next successful layout before attempting to handle moving
-    // the activated view into the scroll view viewport.
     target_scroll_view->RegisterPostLayoutCallback(base::BindRepeating(
         &VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout,
         base::Unretained(this)));
@@ -423,8 +501,6 @@ views::View* VerticalTabStripView::AddScrollViewContents(
     unpinned_tabs_container_view_ = container;
     return unpinned_tabs_scroll_view_->SetContents(std::move(view));
   }
-  // |view| should only ever be VerticalUnpinnedTabContainerView or
-  // VerticalPinnedTabContainerView.
   auto* container =
       views::AsViewClass<VerticalPinnedTabContainerView>(view.get());
   CHECK(container);
@@ -443,8 +519,6 @@ void VerticalTabStripView::RemoveScrollViewContents(views::View* view) {
     pinned_tabs_scroll_view_->SetContents(nullptr);
     return;
   }
-  // |view| should only ever be VerticalUnpinnedTabContainerView or
-  // VerticalPinnedTabContainerView.
   NOTREACHED();
 }
 
@@ -470,11 +544,8 @@ void VerticalTabStripView::ResetCollectionNode() {
 
 void VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout(
     views::ScrollView* scroll_view) {
-  // Explicitly re-register only as needed.
   scroll_view->RegisterPostLayoutCallback(base::DoNothing());
 
-  // Guard against views being removed from the tree between frames. Dragging a
-  // view out of the visible bounds will also trigger a scroll naturally.
   views::View* const activated_view = activated_view_tracker_->view();
   if (!activated_view || !Contains(activated_view) ||
       (collection_node_ &&
@@ -483,14 +554,7 @@ void VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout(
     return;
   }
 
-  // Handle the case where the scroll view is currently not in an overflow
-  // state. In such a case the activated view will be visible in the scroll
-  // view's viewport without scrolling.
   if (!scroll_view->IsVerticalContentOverflowing()) {
-    // It may be the case that the activated view is not at its target height
-    // (i.e. it was activated as it is being animated in). In such a case
-    // disable overflow visuals to prevent jank that can occur if content view
-    // bounds are changed in quick succession.
     if (!activated_view_tracker_->IsViewAtPreferredHeight()) {
       DisableOverflowVisuals(scroll_view);
       activated_view_tracker_->SetOnReachedPreferredHeightCallback(
@@ -498,37 +562,26 @@ void VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout(
                              EnsureVisibleInViewportPostActivationAndLayout,
                          base::Unretained(this), scroll_view));
     } else {
-      // Always exit with overflow visuals enabled.
       EnableOverflowVisuals(scroll_view);
     }
     return;
   }
 
-  // Get view bounds in its contents coordinates.
   gfx::Rect activated_view_bounds =
       GetVerticalTabStripViewTargetBounds(activated_view);
 
-  // Proceed up the hierarchy until the content view is reached, iteratively
-  // adjusting target view bounds.
   for (views::View* v = activated_view->parent(); v != scroll_view->contents();
        v = v->parent()) {
     activated_view_bounds =
         views::View::ConvertRectToTarget(v, v->parent(), activated_view_bounds);
   }
 
-  // Determine the adjustment required to fit the activated view into the
-  // visible content view bounds.
   gfx::Rect adjusted_activated_view_bounds = activated_view_bounds;
   adjusted_activated_view_bounds.AdjustToFit(scroll_view->GetVisibleRect());
 
-  // Calculate the required scroll offset for the visible content bounds (the
-  // reverse of the activated view adjustment).
   const int diff =
       activated_view_bounds.y() - adjusted_activated_view_bounds.y();
 
-  // Calculate the required scroll offset for the visible content bounds taking
-  // into account configured overflow gradients. This is deliberately more than
-  // is needed and may or may not apply depending on view position.
   gfx::Rect overflow_adjusted_activated_view_bounds = activated_view_bounds;
   overflow_adjusted_activated_view_bounds.AdjustToFit(
       scroll_view->GetOpaqueVisibleRect());
@@ -536,18 +589,15 @@ void VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout(
       activated_view_bounds.y() - overflow_adjusted_activated_view_bounds.y();
 
   if (diff != 0) {
-    // Disable overflow visuals to avoid visual artifacts while scrolling,
-    // particularly for views towards the bottom of the scroll view.
     DisableOverflowVisuals(scroll_view);
     scroll_view->ScrollByOffset(
         {0, static_cast<float>(diff_avoid_overflow_gradient)});
     scroll_view->RegisterPostLayoutCallback(base::BindRepeating(
         &VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout,
-        base::Unretained(this)));
+        base::Unretained(
+            this)));  // FIX: Removed the bound `scroll_view` argument
     scroll_view->InvalidateLayout();
   } else {
-    // Request a final scroll to ensure the activated view is moved beyond the
-    // overflow gradient if necessary.
     scroll_view->ScrollByOffset(
         {0, static_cast<float>(diff_avoid_overflow_gradient)});
     EnableOverflowVisuals(scroll_view);
@@ -556,21 +606,16 @@ void VerticalTabStripView::EnsureVisibleInViewportPostActivationAndLayout(
 
 void VerticalTabStripView::EnableOverflowVisuals(
     views::ScrollView* scroll_view) {
-  // Override the post-layout callback to prevent any scheduled scroll requests
-  // from running.
   scroll_view->RegisterPostLayoutCallback(base::DoNothing());
   scroll_view->SetDrawOverflowIndicator(true);
   scroll_view->SetVerticalScrollBarMode(
       views::ScrollView::ScrollBarMode::kEnabled);
 
-  // Restore normal VerticalTabStripScrollBar scrollbar behavior.
   if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
           scroll_view->vertical_scroll_bar())) {
     scroll_bar->SetIsAnimatingSize(false);
   }
 
-  // Reset the active view as it is no longer needed after post-activation
-  // adjustment for viewport visibility is complete.
   activated_view_tracker_->SetView(nullptr);
   scroll_view->InvalidateLayout();
 }
@@ -581,8 +626,6 @@ void VerticalTabStripView::DisableOverflowVisuals(
   scroll_view->SetVerticalScrollBarMode(
       views::ScrollView::ScrollBarMode::kHiddenButEnabled);
 
-  // Suppress scrollbar visuals to avoid artifacts as views are resized to
-  // target bounds whilst simultaneously scrolling to target.
   if (auto* scroll_bar = views::AsViewClass<VerticalTabStripScrollBar>(
           scroll_view->vertical_scroll_bar())) {
     scroll_bar->SetIsAnimatingSize(true);

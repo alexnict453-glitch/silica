@@ -139,9 +139,11 @@ void MenuHost::InitMenuHost(const InitParams& init_params) {
 
   const int corner_radius =
       MenuConfig::instance().CornerRadiusForMenu(menu_controller);
-  params.opacity = (bubble_border || corner_radius)
-                       ? Widget::InitParams::WindowOpacity::kTranslucent
-                       : Widget::InitParams::WindowOpacity::kOpaque;
+
+  // [FORCE TRANSLUCENT MENU WINDOWS]: Force menus to always support translucent
+  // layers
+  params.opacity = Widget::InitParams::WindowOpacity::kTranslucent;
+  params.shadow_type = Widget::InitParams::ShadowType::kNone;
   // bubble_border draws rounded corners if it exists. Otherwise, let the
   // platform draw the corners.
   if (!bubble_border) {

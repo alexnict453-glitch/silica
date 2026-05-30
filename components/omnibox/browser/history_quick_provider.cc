@@ -55,7 +55,10 @@ bool HistoryQuickProvider::disabled_ = false;
 
 HistoryQuickProvider::HistoryQuickProvider(AutocompleteProviderClient* client)
     : HistoryProvider(AutocompleteProvider::TYPE_HISTORY_QUICK, client),
-      in_memory_url_index_(client->GetInMemoryURLIndex()) {}
+      in_memory_url_index_(client->GetInMemoryURLIndex()) {
+  // ENFORCE ZERO-HISTORY: Safely disable this provider globally
+  disabled_ = true;
+}
 
 void HistoryQuickProvider::Start(const AutocompleteInput& input,
                                  bool minimal_changes) {
@@ -107,8 +110,9 @@ void HistoryQuickProvider::DoAutocomplete() {
   ScoredHistoryMatches matches = in_memory_url_index_->HistoryItemsForTerms(
       autocomplete_input_.text(), autocomplete_input_.cursor_position(),
       max_matches, client()->GetOmniboxTriggeredFeatureService());
-  if (matches.empty())
+  if (matches.empty()) {
     return;
+  }
 
   // `original_max_match_score` keeps track of the potential URL-what-you-typed
   // suggestion's score; all HQP suggestions should be scored strictly lower.
@@ -254,8 +258,9 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
       autocomplete_input_.text(), FixupUserInput(autocomplete_input_).second,
       false, base::UTF8ToUTF16(info.url().spec()));
   auto fill_into_edit_format_types = url_formatter::kFormatUrlOmitDefaults;
-  if (history_match.match_in_scheme)
+  if (history_match.match_in_scheme) {
     fill_into_edit_format_types &= ~url_formatter::kFormatUrlOmitHTTP;
+  }
   match.fill_into_edit =
       AutocompleteInput::FormattedStringWithEquivalentMeaning(
           info.url(),
@@ -264,31 +269,8 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
                                    &inline_autocomplete_offset),
           client()->GetSchemeClassifier(), &inline_autocomplete_offset);
 
-  // HistoryQuick classification diverges from relevance scoring. Specifically,
-  // 1) All occurrences of the input contribute to relevance; e.g. for the input
-  // 'pre', the suggestion 'pre prefix' will be scored higher than 'pre suffix'.
-  // For classification though, if the input is a prefix of the suggestion text,
-  // only the prefix will be bolded; e.g. the 1st suggestion will display '[pre]
-  // prefix' as opposed to '[pre] [pre]fix'. This divergence allows consistency
-  // with other providers' and google.com's bolding.
-  // 2) Mid-word occurrences of the input within the suggestion URL contribute
-  // to relevance; e.g. for the input 'mail', the suggestion 'mail - gmail.com'
-  // will be scored higher than 'mail - outlook.live.com'. Mid-word matches only
-  // in the domain affect scoring. For classification though, mid-word matches
-  // are not bolded; e.g. the 1st suggestion will display '[mail] - gmail.com'.
-  // 3) User input is not broken on symbols for relevance calculations; e.g. for
-  // the input '#yolo', the suggestion 'how-to-yolo - yolo.com/#yolo' would be
-  // scored the same as 'how-to-tie-a-tie - yolo.com/#yolo/tie'. For
-  // classification though, user input is broken on symbols; e.g. the 1st
-  // suggestion will display 'how-to-[yolo] - [yolo].com/#[yolo]'.
-
   // If this is a document suggestion, hide its URL for (a) consistency with the
   // document provider and (b) ease of reading.
-  // TODO(manukh): For doc suggestions, the description will be
-  //  'Doc Title - Google [Docs|Sheets...]'. For additional consistency with
-  //  the document provider, the description could be split to 'Doc Title' and
-  //  'Google [Docs|Sheets...]', moving the latter to contents. But for
-  //  now, do the simpler thing of just clearing the URL.
   if (!match.IsDocumentSuggestion()) {
     match.contents = url_formatter::FormatUrl(
         info.url(),
@@ -336,11 +318,6 @@ AutocompleteMatch HistoryQuickProvider::QuickMatchToACMatch(
 
   if (OmniboxFieldTrial::IsPopulatingUrlScoringSignalsEnabled() &&
       match.IsMlSignalLoggingEligible()) {
-    // Propagate scoring signals to AC Match for ML Model training data.
-    // `allowed_to_be_default_match` is set in this function, after the ACMatch
-    // is constructed, rather than in ScoredHistoryMatch. We have to propagate
-    // that signal to `scoring_signals` in addition to all signals calculated in
-    // the ScoredHistoryMatch.
     DCHECK(history_match.scoring_signals.has_value());
     match.scoring_signals = history_match.scoring_signals;
     match.scoring_signals->set_allowed_to_be_default_match(

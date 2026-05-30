@@ -729,7 +729,7 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorThumbnailTabStripBackgroundActive] = {ui::kColorFrameActive};
   mixer[kColorThumbnailTabStripBackgroundInactive] = {ui::kColorFrameInactive};
   // Translucent deep dark background for the main toolbar (Glassmorphism)
-  mixer[kColorToolbar] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[kColorToolbar] = {SkColorSetARGB(180, 24, 24, 24)};  // Silica canvas #181818
   mixer[kColorToolbarContextualTasksButtonShadow] = {
       ui::SetAlpha(ui::kColorShadowBase, 0x255 * 17 / 100)};
   mixer[kColorToolbarButtonBackgroundHighlightedDefault] =
@@ -1149,6 +1149,9 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[ui::kColorSysOnSurfaceSubtle] = {SkColorSetRGB(163, 159, 153)};
   // Address bar (location bar) fill resolves through kColorSysOmniboxContainer.
   mixer[ui::kColorSysOmniboxContainer] = {SkColorSetRGB(29, 29, 29)};
+  // Menus: warm elevated selection highlight (#2B2A28), matching tabs/sidebar.
+  mixer[ui::kColorMenuItemBackgroundSelected] = {SkColorSetRGB(43, 42, 40)};
+  mixer[ui::kColorMenuSelectionBackground] = {SkColorSetRGB(43, 42, 40)};
 
   // Apply high contrast recipes if necessary.
   if (!ShouldApplyHighContrastColors(key)) {

@@ -84,6 +84,13 @@
   }
 }
 
+/* Silica: widen the search box on large viewports to match the Figma. */
+@media (min-width: 1100px) {
+  :host {
+    --ntp-search-box-width: 760px;
+  }
+}
+
 /*A module width of 768px with 18px gaps on each side. */
 @media (min-width: 804px) {
   :host {

@@ -359,8 +359,8 @@ void MenuScrollViewContainer::OnPaintBackground(gfx::Canvas* canvas) {
   cc::PaintFlags flags;
   flags.setAntiAlias(true);
   flags.setStyle(cc::PaintFlags::kFill_Style);
-  // Lowered alpha to 100 to make the glass effect highly visible
-  flags.setColor(SkColorSetARGB(150, 15, 22, 15));
+  // Translucent Silica surface (#1D1D1D) for the glassmorphism menu effect.
+  flags.setColor(SkColorSetARGB(150, 29, 29, 29));
   canvas->DrawRoundRect(GetLocalBounds(), GetCornerRadius(), flags);
 }
 

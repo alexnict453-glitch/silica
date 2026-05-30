@@ -335,7 +335,7 @@ html {
     --cr-fallback-color-state-ripple-primary-rgb_: 76, 141, 246;
     --cr-fallback-color-base-container: rgba(40, 40, 40, 1);
 
-    --cr-card-background-color: var(--google-grey-900-white-4-percent);
+    --cr-card-background-color: #2b2a28;  /* Silica elevated surface */
     --cr-focused-item-color: var(--google-grey-800);
     --cr-form-field-label-color: var(--dark-secondary-color);
     --cr-hairline-rgb: 255, 255, 255;

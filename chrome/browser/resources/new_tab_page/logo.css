@@ -41,17 +41,23 @@
   forced-color-adjust: none;
   height: 92px;
   width: 272px;
+  /* Silica brand wordmark (Figma: Lora Medium, 64px, -7% tracking, #F1F0E3),
+     rendered as text in place of the Google logo. */
+  color: var(--silica-wordmark-color, #f1f0e3);
+  font-family: 'Lora', Georgia, 'Times New Roman', serif;
+  font-size: 64px;
+  font-weight: 500;
+  letter-spacing: -0.07em;
+  line-height: 92px;
+  text-align: center;
+  user-select: none;
+  white-space: nowrap;
 }
 
+/* The wordmark stays the light brand color on the dark Silica canvas,
+   regardless of the themed single-colored logo treatment. */
 :host([single-colored]) #logo {
-  -webkit-mask-image: url(./icons/google_logo.svg);
-  -webkit-mask-repeat: no-repeat;
-  -webkit-mask-size: 100%;
-  background-color: var(--ntp-logo-color);
-}
-
-:host(:not([single-colored])) #logo {
-  background-image: url(./icons/google_logo.svg);
+  color: var(--silica-wordmark-color, #f1f0e3);
 }
 
 #imageDoodle {

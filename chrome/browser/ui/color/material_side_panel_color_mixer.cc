@@ -14,7 +14,7 @@
 void AddMaterialSidePanelColorMixer(ui::ColorProvider* provider,
                                     const ui::ColorProviderKey& key) {
   ui::ColorMixer& mixer = provider->AddMixer();
-  mixer[kColorSidePanelContentBackground] = {SkColorSetARGB(180, 25, 25, 25)};
+  mixer[kColorSidePanelContentBackground] = {SkColorSetARGB(180, 29, 29, 29)};
   mixer[kColorSidePanelComboboxEntryIcon] = {ui::kColorSysPrimary};
   mixer[kColorSidePanelComboboxEntryTitle] = {ui::kColorSysOnSurface};
   mixer[kColorSidePanelEntryDropdownIcon] = {ui::kColorSysOnSurfaceSubtle};

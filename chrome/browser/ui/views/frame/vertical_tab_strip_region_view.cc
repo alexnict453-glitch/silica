@@ -205,7 +205,7 @@ VerticalTabStripRegionView::VerticalTabStripRegionView(
   // DoPostLayoutVisualAdjustments check crash
   SetBackground(std::make_unique<CustomCornersBackground>(
       *this, *browser_view,
-      /*primary_color=*/CustomCornersBackground::FrameTheme(),
+      /*primary_color=*/ui::kColorSysBaseContainer,  // Silica sidebar #1D1D1D
       /*corner_color=*/CustomCornersBackground::ToolbarTheme()));
 
   shadow_frame_ = AddChildView(std::make_unique<ShadowFrameView>(

@@ -432,8 +432,8 @@ ProfileMenuViewBase::ProfileMenuViewBase(views::BubbleAnchor anchor_element,
     layer()->SetFillsBoundsOpaquely(false);
     layer()->SetBackgroundBlur(25);
   }
-  // Soft translucent dark green base background (ARGB)
-  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 20, 30, 20)));
+  // Soft translucent Silica base background (ARGB), warm-neutral (no green).
+  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 24, 24, 24)));
 
   // Forces the underlying BubbleFrameView to be transparent initially
   SetBackgroundColor(SK_ColorTRANSPARENT);
@@ -500,7 +500,7 @@ void ProfileMenuViewBase::SetProfileIdentityWithCallToAction(
   // is painted in a layer that has rounded corners already.
   // Set to a translucent card background to preserve the blurred backdrop
   identity_info_container_->SetBackground(
-      views::CreateSolidBackground(SkColorSetARGB(70, 10, 15, 10)));
+      views::CreateSolidBackground(SkColorSetARGB(70, 24, 24, 24)));
 
   // Space around the rectangle, between the rectangle and the menu edge.
   identity_info_container_->SetProperty(views::kMarginsKey,

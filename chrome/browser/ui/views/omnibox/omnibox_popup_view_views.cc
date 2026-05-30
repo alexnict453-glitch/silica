@@ -289,8 +289,8 @@ OmniboxPopupViewViews::OmniboxPopupViewViews(OmniboxViewViews* omnibox_view,
     layer()->SetFillsBoundsOpaquely(false);
     layer()->SetBackgroundBlur(30);  // High frosted blur radius
   }
-  // Apply a translucent background color (Alpha: 120, Red/Green/Blue: 25)
-  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 25, 25, 25)));
+  // Translucent Silica base background (#181818) for the frosted popup.
+  SetBackground(views::CreateSolidBackground(SkColorSetARGB(120, 24, 24, 24)));
 }
 
 OmniboxPopupViewViews::~OmniboxPopupViewViews() {

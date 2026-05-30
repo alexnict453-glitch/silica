@@ -5,15 +5,23 @@
       html,
       body,
       #image,
+      #video,
       #gradient {
         height: 100%;
         width: 100%;
       }
 
       #image,
+      #video,
       #gradient {
         position: fixed;
         top: 0;
+      }
+
+      /* Silica: video wallpaper renders full-bleed behind the scrim. */
+      #video {
+        left: 0;
+        object-fit: cover;
       }
 
       body {
@@ -45,6 +53,8 @@
     <script type="module" src="background_image.js"></script>
     <!-- The img tag purely exists to capture the load event. -->
     <img src="$i18n{url}" hidden>
+    <!-- Silica: shown instead of #image when the background URL is a video. -->
+    <video id="video" autoplay loop muted playsinline hidden></video>
     <div id="image"></div>
     <div id="gradient"></div>
   </body>

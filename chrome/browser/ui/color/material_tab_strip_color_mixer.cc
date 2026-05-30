@@ -6,6 +6,7 @@
 
 #include "chrome/browser/ui/color/chrome_color_id.h"
 #include "chrome/browser/ui/color/chrome_color_provider_utils.h"
+#include "third_party/skia/include/core/SkColor.h"
 #include "ui/color/color_id.h"
 #include "ui/color/color_mixer.h"
 #include "ui/color/color_provider.h"
@@ -69,8 +70,11 @@ void AddMaterialTabStripColorMixer(ui::ColorProvider* provider,
                               {kColorTabBackgroundInactiveFrameInactive});
 
   // TabDivider colors.
-  mixer[kColorTabDividerFrameActive] = {ui::kColorSysOnHeaderDivider};
-  mixer[kColorTabDividerFrameInactive] = {ui::kColorSysOnHeaderDividerInactive};
+  // Silica: make the divider between horizontal tabs clearly visible on the
+  // dark canvas. The default header-divider tokens are nearly invisible here
+  // and are also re-set by the platform native mixers, so use a literal.
+  mixer[kColorTabDividerFrameActive] = {SkColorSetRGB(0x6E, 0x6B, 0x66)};
+  mixer[kColorTabDividerFrameInactive] = {SkColorSetRGB(0x44, 0x43, 0x3F)};
 
   // Tabstrip Control Button colors.
   mixer[kColorNewTabButtonCRForegroundFrameActive] = {

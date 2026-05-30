@@ -481,7 +481,7 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorLocationBarBackgroundHovered] = {
       kColorToolbarBackgroundSubtleEmphasisHovered};
 
-  mixer[kColorLocationBarBorder] = {SkColorSetA(SK_ColorBLACK, 0x4D)};
+  mixer[kColorLocationBarBorder] = {SkColorSetRGB(39, 39, 38)};  // Silica #272726
   mixer[kColorLocationBarBorderOpaque] =
       ui::GetResultingPaintColor(kColorLocationBarBorder, kColorToolbar);
 
@@ -748,7 +748,7 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorAvatarButtonIncognitoHover] = {kColorToolbarInkDropHover};
   mixer[kColorAvatarButtonNormalRipple] = {kColorToolbarInkDropRipple};
   mixer[kColorToolbarButtonBorder] = ui::SetAlpha(kColorToolbarInkDrop, 0x20);
-  mixer[kColorToolbarButtonIcon] = {kColorToolbarButtonIconDefault};
+  mixer[kColorToolbarButtonIcon] = {SkColorSetRGB(241, 240, 227)};  // Silica cream
   mixer[kColorToolbarButtonIconDefault] = ui::HSLShift(
       gfx::kGoogleGrey700, GetThemeTint(ThemeProperties::TINT_BUTTONS, key));
   mixer[kColorToolbarButtonIconDisabled] =
@@ -1117,43 +1117,38 @@ void AddChromeColorMixer(ui::ColorProvider* provider,
   mixer[kColorReadAnythingFullPageScrollbarLowContrastDark] = {
       SkColorSetRGB(0xC7, 0xC7, 0xC7)};
 
-  // Force active tab to be a lighter pill color, and inactive tabs to be
-  // transparent
+  // Silica palette ("Dark Color Theme"): warm near-black surfaces with a cream
+  // foreground. Active tab = elevated warm pill (#2B2A28); inactive tabs are
+  // transparent; active label is cream (#F1F0E3), inactive is muted (#A39F99).
   mixer[kColorTabBackgroundActiveFrameActive] = {
-      SkColorSetARGB(255, 42, 42, 42)};
+      SkColorSetARGB(255, 43, 42, 40)};
   mixer[kColorTabBackgroundActiveFrameInactive] = {
-      SkColorSetARGB(255, 42, 42, 42)};
+      SkColorSetARGB(255, 43, 42, 40)};
   mixer[kColorTabBackgroundInactiveFrameActive] = {SK_ColorTRANSPARENT};
   mixer[kColorTabBackgroundInactiveFrameInactive] = {SK_ColorTRANSPARENT};
-  mixer[kColorTabForegroundActiveFrameActive] = {SK_ColorWHITE};
+  mixer[kColorTabForegroundActiveFrameActive] = {
+      SkColorSetRGB(241, 240, 227)};
   mixer[kColorTabForegroundInactiveFrameActive] = {
-      SkColorSetRGB(150, 150, 150)};
+      SkColorSetRGB(163, 159, 153)};
 
-  // Force active tab to be a lighter pill color, and inactive tabs to be
-  // transparent
-  mixer[kColorTabBackgroundActiveFrameActive] = {
-      SkColorSetARGB(255, 42, 42, 42)};
-  mixer[kColorTabBackgroundActiveFrameInactive] = {
-      SkColorSetARGB(255, 42, 42, 42)};
-  mixer[kColorTabBackgroundInactiveFrameActive] = {SK_ColorTRANSPARENT};
-  mixer[kColorTabBackgroundInactiveFrameInactive] = {SK_ColorTRANSPARENT};
-  mixer[kColorTabForegroundActiveFrameActive] = {SK_ColorWHITE};
-  mixer[kColorTabForegroundInactiveFrameActive] = {
-      SkColorSetRGB(150, 150, 150)};
-
-  // Stomp out the dynamic green Material You tokens with deep dark
-  // glassmorphism hues
-  mixer[ui::kColorSysBase] = {SkColorSetARGB(180, 25, 25, 25)};
-  mixer[ui::kColorSysHeader] = {SkColorSetARGB(180, 25, 25, 25)};
-  mixer[ui::kColorSysHeaderInactive] = {SkColorSetARGB(180, 25, 25, 25)};
-  mixer[ui::kColorSysHeaderContainer] = {SkColorSetARGB(255, 42, 42, 42)};
+  // Stomp out the dynamic Material You tokens with the Silica palette. The
+  // existing translucency (alpha) is preserved so the glassmorphism effect
+  // remains; only the hues are retuned to the Silica "Dark Color Theme":
+  //   #181818 base canvas, #1D1D1D surface, #2B2A28 elevated/active,
+  //   #A39F99 muted foreground, #F1F0E3 primary (cream) foreground.
+  mixer[ui::kColorSysBase] = {SkColorSetARGB(180, 24, 24, 24)};
+  mixer[ui::kColorSysHeader] = {SkColorSetARGB(180, 24, 24, 24)};
+  mixer[ui::kColorSysHeaderInactive] = {SkColorSetARGB(180, 24, 24, 24)};
+  mixer[ui::kColorSysHeaderContainer] = {SkColorSetARGB(255, 43, 42, 40)};
   mixer[ui::kColorSysHeaderContainerInactive] = {
-      SkColorSetARGB(255, 42, 42, 42)};
-  mixer[ui::kColorSysSurfaceVariant] = {SkColorSetARGB(180, 25, 25, 25)};
-  mixer[ui::kColorSysBaseContainer] = {SkColorSetARGB(180, 25, 25, 25)};
-  mixer[ui::kColorSysBaseContainerElevated] = {SkColorSetARGB(255, 42, 42, 42)};
-  mixer[ui::kColorSysOnSurface] = {SK_ColorWHITE};
-  mixer[ui::kColorSysOnSurfaceSubtle] = {SkColorSetRGB(150, 150, 150)};
+      SkColorSetARGB(255, 43, 42, 40)};
+  mixer[ui::kColorSysSurfaceVariant] = {SkColorSetARGB(180, 29, 29, 29)};
+  mixer[ui::kColorSysBaseContainer] = {SkColorSetARGB(180, 29, 29, 29)};
+  mixer[ui::kColorSysBaseContainerElevated] = {SkColorSetARGB(255, 43, 42, 40)};
+  mixer[ui::kColorSysOnSurface] = {SkColorSetRGB(241, 240, 227)};
+  mixer[ui::kColorSysOnSurfaceSubtle] = {SkColorSetRGB(163, 159, 153)};
+  // Address bar (location bar) fill resolves through kColorSysOmniboxContainer.
+  mixer[ui::kColorSysOmniboxContainer] = {SkColorSetRGB(29, 29, 29)};
 
   // Apply high contrast recipes if necessary.
   if (!ShouldApplyHighContrastColors(key)) {

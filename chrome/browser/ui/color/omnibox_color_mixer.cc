@@ -276,9 +276,10 @@ void AddOmniboxColorMixer(ui::ColorProvider* provider,
       kColorLocationBarClearAllButtonIcon, gfx::kDisabledControlAlpha);
 
   // Omnibox background colors.
-  mixer[kColorToolbarBackgroundSubtleEmphasis] = {SkColorSetRGB(35, 35, 35)};
+  mixer[kColorToolbarBackgroundSubtleEmphasis] = {
+      SkColorSetRGB(29, 29, 29)};  // Silica surface #1D1D1D
   mixer[kColorToolbarBackgroundSubtleEmphasisHovered] = {
-      SkColorSetRGB(51, 51, 51)};
+      SkColorSetRGB(43, 42, 40)};  // Silica elevated #2B2A28
 
   // Omnibox text colors.
   mixer[kColorOmniboxText] = {SK_ColorWHITE};

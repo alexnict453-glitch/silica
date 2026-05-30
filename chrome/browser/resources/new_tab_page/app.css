@@ -15,7 +15,10 @@
     --color-new-tab-page-common-input-placeholder
   );
   --cr-focus-outline-color: var(--color-new-tab-page-focus-ring);
-  --cr-searchbox-height: 48px;
+  --cr-searchbox-height: 64px;
+  --color-searchbox-background: #1d1d1d;
+  --color-searchbox-border: #272726;
+  --cr-searchbox-border: 2px solid var(--color-searchbox-border);
   --cr-searchbox-shadow: 0 1px 6px 0 var(--color-searchbox-shadow);
   --cr-searchbox-icon-left-position: 12px;
   --cr-searchbox-icon-size-in-searchbox: 20px;

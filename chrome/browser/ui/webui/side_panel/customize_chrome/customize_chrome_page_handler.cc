@@ -309,6 +309,10 @@ void CustomizeChromePageHandler::ChooseLocalCustomBackground(
   file_types.extensions[0].push_back(FILE_PATH_LITERAL("jpeg"));
   file_types.extensions[0].push_back(FILE_PATH_LITERAL("png"));
   file_types.extensions[0].push_back(FILE_PATH_LITERAL("gif"));
+  // Silica: also accept video files so a video can be set as the background.
+  // Limited to the formats Chromium reliably plays back (mp4/H.264 and webm).
+  file_types.extensions[0].push_back(FILE_PATH_LITERAL("mp4"));
+  file_types.extensions[0].push_back(FILE_PATH_LITERAL("webm"));
   file_types.extension_description_overrides.push_back(
       l10n_util::GetStringUTF16(IDS_UPLOAD_IMAGE_FORMAT));
   DCHECK(!choose_local_custom_background_callback_);

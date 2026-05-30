@@ -52,15 +52,14 @@
 }
 
 /* Silica: minimal NTP to match the Figma — show only the wordmark + search
-   box. Hide the One Google Bar, shortcuts, promos, modules, and the customize
-   button. */
+   box. Hide the One Google Bar, shortcuts, promos, and modules. Keep the
+   customize button so users can still change the background. */
 #oneGoogleBar,
 #oneGoogleBarScrim,
 #oneGoogleBarStackingContext,
 #mostVisited,
 ntp-middle-slot-promo,
-ntp-modules,
-#customizeButtons {
+ntp-modules {
   display: none !important;
 }
 

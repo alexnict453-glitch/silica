@@ -96,6 +96,25 @@
   }
 }
 
+/* Silica: make the suggestion text glow when the row is hovered or selected. */
+#text-container {
+  transition: text-shadow 150ms ease;
+}
+
+.container:not(.actions):hover #text-container,
+:host(:is(:focus-visible, [selected])) .container:not(.actions) #text-container {
+  text-shadow: 0 0 8px rgba(241, 240, 227, 0.6),
+               0 0 2px rgba(241, 240, 227, 0.45);
+}
+
+@media (forced-colors: active) {
+  /* No glow in high-contrast mode — let the OS colors stand on their own. */
+  .container:not(.actions):hover #text-container,
+  :host(:is(:focus-visible, [selected])) .container:not(.actions) #text-container {
+    text-shadow: none;
+  }
+}
+
 :host([enable-csb-motion-tweaks_][is-lens-searchbox_]) .container {
   height: 48px;
   padding-bottom: 0;

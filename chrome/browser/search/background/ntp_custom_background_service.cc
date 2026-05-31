@@ -110,12 +110,29 @@ base::DictValue NtpCustomBackgroundDefaults() {
   return defaults;
 }
 
+// Silica: lowercase file extensions (no dot) rendered as looping video
+// wallpapers for local custom backgrounds. Everything else is treated as a
+// regular image and keeps the historical "background.jpg" handling.
+bool IsVideoFileExtension(const std::string& ext) {
+  return ext == "mp4" || ext == "webm";
+}
+
+// Silica: on-disk and served filename for a local custom background of the
+// given type. Images use "background.jpg" (unchanged); videos use
+// "background.<ext>" so the served URL carries a video extension, which drives
+// both the MIME type and the <video> rendering path on the NTP.
+std::string LocalBackgroundFilenameForType(const std::string& type) {
+  if (IsVideoFileExtension(type)) {
+    return std::string("background.") + type;
+  }
+  return chrome::kChromeUIUntrustedNewTabPageBackgroundFilename;
+}
+
 #if !BUILDFLAG(IS_ANDROID)
 void CopyFileToProfilePath(const base::FilePath& from_path,
-                           const base::FilePath& profile_path) {
-  base::CopyFile(from_path,
-                 profile_path.AppendASCII(
-                     chrome::kChromeUIUntrustedNewTabPageBackgroundFilename));
+                           const base::FilePath& profile_path,
+                           const std::string& dest_filename) {
+  base::CopyFile(from_path, profile_path.AppendASCII(dest_filename));
 }
 
 std::string ReadFileToString(const base::FilePath& path) {
@@ -136,12 +153,16 @@ void RemoveLocalBackgroundImageCopy(Profile* profile) {
           optimization_guide::features::kOptimizationGuideModelExecution)) {
     WallpaperSearchBackgroundManager::RemoveWallpaperSearchBackground(profile);
   }
-  // Delete uploaded image.
-  base::FilePath path = profile->GetPath().AppendASCII(
-      chrome::kChromeUIUntrustedNewTabPageBackgroundFilename);
-  base::ThreadPool::PostTask(
-      FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
-      base::GetDeleteFileCallback(path));
+  // Delete the uploaded image/video. Silica: the upload may have been stored
+  // under an image or a video filename, so remove every possible variant.
+  const char* kLocalBackgroundFilenames[] = {
+      chrome::kChromeUIUntrustedNewTabPageBackgroundFilename, "background.mp4",
+      "background.webm"};
+  for (const char* filename : kLocalBackgroundFilenames) {
+    base::ThreadPool::PostTask(
+        FROM_HERE, {base::TaskPriority::BEST_EFFORT, base::MayBlock()},
+        base::GetDeleteFileCallback(profile->GetPath().AppendASCII(filename)));
+  }
 #endif  // !BUILDFLAG(IS_ANDROID)
 }
 
@@ -169,6 +190,9 @@ void NtpCustomBackgroundService::RegisterProfilePrefs(
   registry->RegisterBooleanPref(prefs::kNtpCustomBackgroundLocalToDevice,
                                 false);
   registry->RegisterStringPref(prefs::kNtpCustomBackgroundLocalToDeviceId, "");
+  // Silica: extension of a local video wallpaper ("" for regular images).
+  registry->RegisterStringPref(prefs::kNtpCustomBackgroundLocalToDeviceType,
+                               "");
   registry->RegisterBooleanPref(prefs::kNtpCustomBackgroundInspiration, false);
 
 #if !BUILDFLAG(IS_ANDROID)
@@ -380,9 +404,20 @@ void NtpCustomBackgroundService::SelectLocalBackgroundImage(
   if (IsCustomBackgroundDisabledByPolicy()) {
     return;
   }
+  // Silica: detect a video upload and remember its extension so the background
+  // is stored/served as "background.<ext>" and rendered with a <video>. Any
+  // non-video upload keeps the historical "background.jpg" image handling.
+  std::string type;
+  if (path.MatchesExtension(FILE_PATH_LITERAL(".mp4"))) {
+    type = "mp4";
+  } else if (path.MatchesExtension(FILE_PATH_LITERAL(".webm"))) {
+    type = "webm";
+  }
+  pref_service_->SetString(prefs::kNtpCustomBackgroundLocalToDeviceType, type);
   base::ThreadPool::PostTaskAndReply(
       FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
-      base::BindOnce(&CopyFileToProfilePath, path, profile_->GetPath()),
+      base::BindOnce(&CopyFileToProfilePath, path, profile_->GetPath(),
+                     LocalBackgroundFilenameForType(type)),
       base::BindOnce(&NtpCustomBackgroundService::SetBackgroundToLocalResource,
                      weak_ptr_factory_.GetWeakPtr()));
 #endif
@@ -430,9 +465,12 @@ NtpCustomBackgroundService::GetCustomBackground() {
     std::string time_string = base::NumberToString(base::Time::Now().ToTimeT());
     std::string local_background_id =
         pref_service_->GetString(prefs::kNtpCustomBackgroundLocalToDeviceId);
-    std::string local_string(
-        chrome::kChromeUIUntrustedNewTabPageUrl + local_background_id +
-        chrome::kChromeUIUntrustedNewTabPageBackgroundFilename);
+    // Silica: use the stored type so a local video wallpaper is served from a
+    // "background.<ext>" URL (drives MIME type + <video> rendering).
+    std::string local_filename = LocalBackgroundFilenameForType(
+        pref_service_->GetString(prefs::kNtpCustomBackgroundLocalToDeviceType));
+    std::string local_string(chrome::kChromeUIUntrustedNewTabPageUrl +
+                             local_background_id + local_filename);
     GURL timestamped_url(local_string + "?ts=" + time_string);
     custom_background->custom_background_url = timestamped_url;
     custom_background->is_uploaded_image = true;
@@ -621,8 +659,10 @@ void NtpCustomBackgroundService::SetBackgroundToLocalResource() {
           ntp_features::kCustomizeChromeWallpaperSearch) &&
       base::FeatureList::IsEnabled(
           optimization_guide::features::kOptimizationGuideModelExecution)) {
+    // Silica: read whatever local file was actually stored (image or video).
     base::FilePath path = profile_->GetPath().AppendASCII(
-        chrome::kChromeUIUntrustedNewTabPageBackgroundFilename);
+        LocalBackgroundFilenameForType(pref_service_->GetString(
+            prefs::kNtpCustomBackgroundLocalToDeviceType)));
     base::ThreadPool::PostTaskAndReplyWithResult(
         FROM_HERE, {base::TaskPriority::USER_VISIBLE, base::MayBlock()},
         base::BindOnce(&ReadFileToString, path),
@@ -640,6 +680,9 @@ void NtpCustomBackgroundService::SetBackgroundToLocalResourceWithId(
   pref_service_->SetBoolean(prefs::kNtpCustomBackgroundLocalToDevice, true);
   pref_service_->SetString(prefs::kNtpCustomBackgroundLocalToDeviceId,
                            id.ToString());
+  // Silica: wallpaper-search results are images stored as "background.jpg".
+  pref_service_->SetString(prefs::kNtpCustomBackgroundLocalToDeviceType,
+                           std::string());
   pref_service_->SetBoolean(prefs::kNtpCustomBackgroundInspiration,
                             is_inspiration_image);
   NotifyAboutBackgrounds();

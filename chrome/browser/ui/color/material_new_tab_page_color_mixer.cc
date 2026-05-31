@@ -46,7 +46,9 @@ void AddMaterialNewTabPageColorMixer(ui::ColorProvider* provider,
   mixer[kColorNewTabPageAddShortcutBackground] = {ui::kColorSysTonalContainer};
   mixer[kColorNewTabPageAddShortcutForeground] = {
       ui::kColorSysOnTonalContainer};
-  mixer[kColorNewTabPageBackground] = {ui::kColorSysBase};
+  // Silica: NTP canvas is the brand near-black #181818 (Figma "Dark Color
+  // Theme" base), not the lighter GM3 surface.
+  mixer[kColorNewTabPageBackground] = {SkColorSetRGB(0x18, 0x18, 0x18)};
   mixer[kColorNewTabPageBorder] = {ui::kColorSysBaseContainer};
   mixer[kColorNewTabPageButtonBackground] = {ui::kColorSysTonalContainer};
   mixer[kColorNewTabPageButtonBackgroundHovered] = {

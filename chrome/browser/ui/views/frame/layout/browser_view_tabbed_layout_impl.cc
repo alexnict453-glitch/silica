@@ -1365,8 +1365,11 @@ void BrowserViewTabbedLayoutImpl::DoPostLayoutVisualAdjustments(
     vertical_tabs_outline.opacity =
         1.0 - kVerticalTabStripOutlineFadeOnHover *
                   vertical_tabs_bottom_corner_amount;
-    // Vertical tabs outline always draws trailing edge.
-    vertical_tabs_outline.trailing = true;
+    // Silica: don't draw the trailing (right) edge. Against the dark palette it
+    // reads as an off-putting bright vertical seam between the sidebar and the
+    // page content. The expand-on-hover shadow still separates the floating
+    // panel from the page when it overlaps the content.
+    vertical_tabs_outline.trailing = false;
     // Top edge is drawn if the layout is below the top of the parent.
     if (animation.expand_on_hover ||
         views().vertical_tab_strip_region_view->y() > 0 ||

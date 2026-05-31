@@ -51,6 +51,18 @@
   --threads-rail-focus-outline-color: var(--color-new-tab-page-focus-ring);
 }
 
+/* Silica: minimal NTP to match the Figma — show only the wordmark + search
+   box. Hide the One Google Bar, shortcuts, promos, and modules. Keep the
+   customize button so users can still change the background. */
+#oneGoogleBar,
+#oneGoogleBarScrim,
+#oneGoogleBarStackingContext,
+#mostVisited,
+ntp-middle-slot-promo,
+ntp-modules {
+  display: none !important;
+}
+
 /**
  * Hide everything that should not display when the composebox is open
  * so they are not tabbable.

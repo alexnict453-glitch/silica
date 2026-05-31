@@ -88,19 +88,26 @@ std::string AsyncParamDataAsCSV(
   return csv.substr(1);
 }
 
-// Validates that the background image path is either exactly "background.jpg"
-// or a 32-character hex token followed by "background.jpg". This prevents
-// directory traversal (crbug.com/497241148). The analogous serialization
-// logic can be found in
+// Validates that the background image path is one of the known background
+// filenames ("background.jpg" or, for Silica video wallpapers,
+// "background.mp4"/"background.webm"), optionally prefixed by a 32-character
+// hex token. This prevents directory traversal (crbug.com/497241148). The
+// analogous serialization logic can be found in
 // `NtpCustomBackgroundService::SetBackgroundToLocalResourceWithId()` and
 // `WallpaperSearchBackgroundManager::SelectLocalBackgroundImage()`.
 bool IsValidBackgroundImagePath(std::string_view path) {
-  std::optional<std::string_view> prefix =
-      base::RemoveSuffix(path, "background.jpg");
-  if (!prefix) {
-    return false;
+  // Silica: accept the historical "background.jpg" as well as local video
+  // wallpaper filenames. Each may be prefixed by a 32-character hex token.
+  static constexpr std::string_view kBackgroundFilenames[] = {
+      "background.jpg", "background.mp4", "background.webm"};
+  for (std::string_view filename : kBackgroundFilenames) {
+    std::optional<std::string_view> prefix = base::RemoveSuffix(path, filename);
+    if (prefix && (prefix->empty() ||
+                   base::Token::FromString(*prefix).has_value())) {
+      return true;
+    }
   }
-  return prefix->empty() || base::Token::FromString(*prefix).has_value();
+  return false;
 }
 
 std::map<std::string, std::string> ExtractQueryParams(

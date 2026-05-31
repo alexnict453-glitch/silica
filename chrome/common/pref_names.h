@@ -1635,6 +1635,10 @@ inline constexpr char kNtpCustomBackgroundLocalToDevice[] =
     "ntp.custom_background_local_to_device";
 inline constexpr char kNtpCustomBackgroundLocalToDeviceId[] =
     "ntp.custom_background_local_to_device_id";
+// Silica: file extension (without the leading dot, e.g. "mp4") of the local
+// custom background when it is a video. Empty means a regular image (jpg).
+inline constexpr char kNtpCustomBackgroundLocalToDeviceType[] =
+    "ntp.custom_background_local_to_device_type";
 inline constexpr char kNtpCustomBackgroundInspiration[] =
     "ntp.custom_background_inspiration";
 

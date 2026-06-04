@@ -85,6 +85,7 @@ group("resources") {
       "side_panel/read_anything:resources",
       "side_panel/reading_list:resources",
       "side_panel/shared:resources",
+      "side_panel/silica_ai:resources",
       "side_panel/tabs_from_other_devices:resources",
       "signin:resources",
       "suggest_internals:resources",

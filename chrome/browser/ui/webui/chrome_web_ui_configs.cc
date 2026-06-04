@@ -125,6 +125,7 @@
 #include "chrome/browser/ui/webui/side_panel/customize_chrome/customize_chrome_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history/history_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/history_clusters/history_clusters_side_panel_ui.h"
+#include "chrome/browser/ui/webui/side_panel/silica_ai/silica_ai_side_panel_ui.h"
 #include "chrome/browser/ui/webui/side_panel/reading_list/reading_list_ui.h"
 #include "chrome/browser/ui/webui/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_ui.h"
 #include "chrome/browser/ui/webui/signin/sync_confirmation_ui.h"
@@ -345,6 +346,7 @@ void RegisterChromeWebUIConfigs() {
   map.AddWebUIConfig(std::make_unique<HistoryUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistorySidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<HistoryClustersSidePanelUIConfig>());
+  map.AddWebUIConfig(std::make_unique<SilicaAiSidePanelUIConfig>());
   map.AddWebUIConfig(std::make_unique<InfobarInternalsUIConfig>());
   map.AddWebUIConfig(std::make_unique<InspectUIConfig>());
 #if BUILDFLAG(ENABLE_SESSION_SERVICE)

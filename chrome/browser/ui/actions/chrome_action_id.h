@@ -582,6 +582,7 @@
   E(kActionSidePanelShowReadingList, IDC_READING_LIST_MENU_SHOW_UI) \
   E(kActionSidePanelShowSearchCompanion, IDC_SHOW_SEARCH_COMPANION) \
   E(kActionSidePanelShowShoppingInsights) \
+  E(kActionSidePanelShowSilicaAi) \
   E(kActionSidePanelShowSideSearch) \
   E(kActionSidePanelShowMerchantTrust) \
   E(kActionSidePanelShowTabsFromOtherDevices, \

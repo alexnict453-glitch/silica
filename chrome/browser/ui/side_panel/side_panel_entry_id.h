@@ -26,6 +26,7 @@
   V(kFeed, kActionSidePanelShowFeed, "Feed")                                  \
   V(kWebView, std::nullopt, "WebView")                                        \
   V(kContextualTasks, kActionSidePanelShowContextualTasks, "ContextualTasks") \
+  V(kSilicaAi, kActionSidePanelShowSilicaAi, "SilicaAi")                       \
   /* Contextual Entries */                                                    \
   V(kSideSearch, kActionSidePanelShowSideSearch, "SideSearch")                \
   V(kLens, kActionSidePanelShowLens, "Lens")                                  \

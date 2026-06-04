@@ -346,6 +346,13 @@ void BrowserActions::InitializeSidePanelActions() {
             .Build());
   }
 
+  // Silica AI side panel (always available).
+  root_action_item_->AddChild(
+      SidePanelAction(SidePanelEntryId::kSilicaAi, IDS_SILICA_AI_TITLE,
+                      IDS_SILICA_AI_SHOW_SIDE_PANEL, vector_icons::kBoltIcon,
+                      kActionSidePanelShowSilicaAi, bwi, true)
+          .Build());
+
   ui::Accelerator reading_mode_accelerator;
   std::u16string reading_mode_shortcut;
   if (GetAcceleratorForCommandId(IDC_SHOW_READING_MODE_KEYBOARD,

@@ -142,6 +142,7 @@
 #include "chrome/browser/ui/views/side_panel/extensions/extension_side_panel_manager.h"
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/silica_ai/silica_ai_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/reading_list/reading_list_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
@@ -859,6 +860,9 @@ void BrowserWindowFeatures::InitPostBrowserViewConstruction(
     GetUserDataFactory().CreateInstance<HistorySidePanelCoordinator>(
         *browser_view->browser(), browser_view->browser());
   }
+
+  GetUserDataFactory().CreateInstance<SilicaAiSidePanelCoordinator>(
+      *browser_view->browser(), browser_view->browser());
 
   history_clusters_side_panel_coordinator_ =
       std::make_unique<HistoryClustersSidePanelCoordinator>(

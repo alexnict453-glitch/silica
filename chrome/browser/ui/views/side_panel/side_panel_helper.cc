@@ -17,6 +17,7 @@
 #include "chrome/browser/ui/views/side_panel/history/history_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/history_clusters/history_clusters_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/reading_list/reading_list_side_panel_coordinator.h"
+#include "chrome/browser/ui/views/side_panel/silica_ai/silica_ai_side_panel_coordinator.h"
 #include "chrome/browser/ui/views/side_panel/tabs_from_other_devices/tabs_from_other_devices_side_panel_coordinator.h"
 #include "chrome/browser/ui/webui_browser/webui_browser.h"
 #include "components/history_clusters/core/features.h"
@@ -33,6 +34,10 @@ void SidePanelHelper::PopulateGlobalEntries(
 
   // Add bookmarks.
   BookmarksSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
+      window_registry);
+
+  // Add Silica AI (always available).
+  SilicaAiSidePanelCoordinator::From(browser)->CreateAndRegisterEntry(
       window_registry);
 
   if (webui_browser::IsWebUIBrowserEnabled()) {

@@ -9390,6 +9390,12 @@ Keep your key file in a safe place. You will need it to create new versions of y
       <message name="IDS_SIDE_PANEL_COMPANION_ERROR_PAGE_SECOND_LINE" desc="Text shown on the side panel for the companion feature when there is a network or other navigation error. The text suggests trying again later.">
         Please try again later
       </message>
+      <message name="IDS_SILICA_AI_TITLE" desc="Title of the Silica AI side panel.">
+        Silica AI
+      </message>
+      <message name="IDS_SILICA_AI_SHOW_SIDE_PANEL" desc="Tooltip and menu text for showing the Silica AI side panel.">
+        Show Silica AI
+      </message>
       <message name="IDS_SHOW_CUSTOMIZE_CHROME_SIDE_PANEL" desc="The title of the menu item for showing the Customize Chrome side panel.">
         Customize Chrome
       </message>

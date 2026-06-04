@@ -1,0 +1,32 @@
+# Copyright 2025 The Chromium Authors
+# Use of this source code is governed by a BSD-style license that can be
+# found in the LICENSE file.
+
+import("//ui/webui/resources/tools/build_webui.gni")
+
+assert(!is_android)
+
+build_webui("build") {
+  grd_prefix = "side_panel_silica_ai"
+
+  # Served verbatim. (build_webui forbids .js in static_files, so the logic
+  # lives in ts_files below and is compiled to .js.)
+  static_files = [
+    "silica_ai.html",
+    "styles.css",
+  ]
+
+  # Plain ES-module TypeScript (vanilla DOM, @ts-nocheck). Compiled to .js.
+  ts_files = [
+    "app.ts",
+    "ollama.ts",
+    "markdown.ts",
+    "extract.ts",
+    "util.ts",
+    "tabs.ts",
+  ]
+
+  ts_deps = [ "//ui/webui/resources/js:build_ts" ]
+
+  webui_context_type = "trusted"
+}

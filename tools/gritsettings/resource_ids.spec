@@ -740,6 +740,12 @@
     "META": {"sizes": {"includes": [5],}},
     "includes": [4860],
   },
+  # Silica AI side panel (1 HTML + 6 compiled TS modules). Uses the free range
+  # between history_clusters (<=4864) and read_anything (4880).
+  "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/silica_ai/resources.grd": {
+    "META": {"sizes": {"includes": [10],}},
+    "includes": [4870],
+  },
   "<(SHARED_INTERMEDIATE_DIR)/chrome/browser/resources/side_panel/read_anything/resources.grd": {
     "META": {"sizes": {"includes": [80],}},
     "includes": [4880],

@@ -131,6 +131,7 @@ chromium-metrics-reviews@google.com.
   <variant name=".ReadingList"/>
   <variant name=".ReloadButtonUI"/>
   <variant name=".ShoppingInsightsSidePanel"/>
+  <variant name=".SilicaAiSidePanel"/>
   <variant name=".TabSearch"/>
   <variant name=".TabsFromOtherDevicesSidePanel"/>
   <variant name=".UserEducation"/>

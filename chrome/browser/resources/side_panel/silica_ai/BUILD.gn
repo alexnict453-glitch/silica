@@ -9,12 +9,11 @@ assert(!is_android)
 build_webui("build") {
   grd_prefix = "side_panel_silica_ai"
 
-  # Served verbatim. (build_webui forbids .js in static_files, so the logic
-  # lives in ts_files below and is compiled to .js.)
-  static_files = [
-    "silica_ai.html",
-    "styles.css",
-  ]
+  # HTML is served verbatim. The stylesheet is inlined into silica_ai.html (in a
+  # <style> block) on purpose: build_webui runs stylelint on any .css listed
+  # here, and CSS inside a static .html is not linted. (build_webui also forbids
+  # .js in static_files, so the logic lives in ts_files and compiles to .js.)
+  static_files = [ "silica_ai.html" ]
 
   # Plain ES-module TypeScript (vanilla DOM, @ts-nocheck). Compiled to .js.
   ts_files = [

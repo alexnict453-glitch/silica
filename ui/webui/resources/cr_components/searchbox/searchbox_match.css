@@ -96,11 +96,9 @@
   }
 }
 
-/* Silica: make the suggestion text glow when the row is hovered or selected. */
-#text-container {
-  transition: text-shadow 150ms ease;
-}
-
+/* Silica: make the suggestion text glow when the row is hovered or selected.
+   (The text-shadow transition is set on the main #text-container rule below to
+   avoid a duplicate selector that stylelint's no-duplicate-selectors rejects.) */
 .container:not(.actions):hover #text-container,
 :host(:is(:focus-visible, [selected])) .container:not(.actions) #text-container {
   text-shadow: 0 0 8px rgba(241, 240, 227, 0.6),
@@ -197,6 +195,8 @@
   padding-inline-end: var(--cr-searchbox-match-text-padding-inline-end, 8px);
   padding-inline-start: var(--cr-searchbox-match-text-padding-inline-start, 8px);
   white-space: nowrap;
+  /* Silica: animate the hover/selected text glow (see rules earlier). */
+  transition: text-shadow 150ms ease;
 <if expr="is_win">
   /* Unlike other platforms, the text in the WebUI omnibox popup appears 2px
      lower than the Views omnibox. See http://crbug.com/452732795. */

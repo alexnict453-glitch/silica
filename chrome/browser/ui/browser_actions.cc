@@ -349,7 +349,7 @@ void BrowserActions::InitializeSidePanelActions() {
   // Silica AI side panel (always available).
   root_action_item_->AddChild(
       SidePanelAction(SidePanelEntryId::kSilicaAi, IDS_SILICA_AI_TITLE,
-                      IDS_SILICA_AI_SHOW_SIDE_PANEL, vector_icons::kBoltIcon,
+                      IDS_SILICA_AI_SHOW_SIDE_PANEL, kBoltIcon,
                       kActionSidePanelShowSilicaAi, bwi, true)
           .Build());
 

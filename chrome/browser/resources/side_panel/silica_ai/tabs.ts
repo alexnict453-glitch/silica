@@ -1,4 +1,5 @@
 // @ts-nocheck — vanilla DOM/TS; type-checking disabled for this WebUI bundle.
+/* eslint-disable -- Ported vanilla-DOM app (see @ts-nocheck above); intentionally not Chromium-idiomatic TS. */
 // Silica AI — all sidebar tools. buildTabs(ctx) returns the tab descriptors.
 import {
   h, SPEED_QUALITY_SETTINGS, DETAIL_SETTINGS, RECOMMENDED_MODELS, QUANTS, POPULAR_MODELS,

@@ -1,4 +1,5 @@
 // @ts-nocheck — vanilla DOM/TS; type-checking disabled for this WebUI bundle.
+/* eslint-disable -- Ported vanilla-DOM app (see @ts-nocheck above); intentionally not Chromium-idiomatic TS. */
 // Content extraction: file reading, web scraping, YouTube transcripts, chunking.
 // Note: as a chrome:// WebUI these reads are subject to CORS. Web Summarizer
 // uses the r.jina.ai reader (CORS-friendly) as a fallback; some direct scrapes

@@ -1,4 +1,5 @@
 // @ts-nocheck — vanilla DOM/TS; type-checking disabled for this WebUI bundle.
+/* eslint-disable -- Ported vanilla-DOM app (see @ts-nocheck above); intentionally not Chromium-idiomatic TS. */
 // Shared helpers + ported configuration tables for Silica AI.
 
 /** Tiny hyperscript DOM builder. */

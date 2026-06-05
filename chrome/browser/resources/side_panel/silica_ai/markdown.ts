@@ -1,4 +1,5 @@
 // @ts-nocheck — vanilla DOM/TS; type-checking disabled for this WebUI bundle.
+/* eslint-disable -- Ported vanilla-DOM app (see @ts-nocheck above); intentionally not Chromium-idiomatic TS. */
 // Compact Markdown -> HTML renderer with the Python app's LaTeX cleanup baked in.
 import {escapeHtml} from './util.js';
 

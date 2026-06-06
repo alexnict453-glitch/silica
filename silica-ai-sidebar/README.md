@@ -10,20 +10,20 @@ machine through [Ollama](https://ollama.com) — nothing is sent to the cloud.
 
 | Tab | What it does |
 | --- | --- |
-| 💬 Chat | Conversational chat with your local model. |
-| 🌐 Summarize | Fetch any web page and produce a clean Markdown summary. |
-| 📷 Translate | Extract & translate text from an image (needs a vision model). |
-| 📚 Quizlet | Turn a document into flashcards, then quiz yourself with AI grading. |
-| 📖 Guide | Compile a chapter-by-chapter study guide; export as Markdown. |
-| 📺 Video | Turn a YouTube transcript into structured notes; export as Markdown. |
-| 🔍 Search | Semantically scan a document for a concept (not just keywords). |
-| 🔬 Solver | Two-stage diagram/formula solver: a vision model transcribes, an LLM explains. |
-| ⚙️ Models | Install, browse, and delete Ollama models, with RAM/disk estimates. |
+| Chat | Conversational chat with your local model. |
+| Summarize | Fetch any web page and produce a clean Markdown summary. |
+| Translate | Extract & translate text from an image (needs a vision model). |
+| Flashcards | Turn a document into flashcards, then quiz yourself with AI grading. |
+| Guide | Compile a chapter-by-chapter study guide; export as Markdown. |
+| Video | Turn a YouTube transcript into structured notes; export as Markdown. |
+| Search | Semantically scan a document for a concept (not just keywords). |
+| Solver | Two-stage diagram/formula solver: a vision model transcribes, an LLM explains. |
+| Models | Install, browse, and delete Ollama models, with RAM/disk estimates. |
 
 ## Requirements
 
 - **Ollama** installed and running — start it with `ollama serve` or the Ollama app.
-- **At least one model** pulled. Use the **⚙️ Models** tab, or run e.g.
+- **At least one model** pulled. Use the **Models** tab, or run e.g.
   `ollama pull llama3.1:8b` (and a vision model like `ollama pull llava` for the
   image tools).
 
@@ -38,21 +38,22 @@ machine through [Ollama](https://ollama.com) — nothing is sent to the cloud.
 ## Using it
 
 - Choose your active model from the header dropdown.
-- Header buttons: **⟳** refresh model list · **🧹** unload model from RAM ·
+- Header buttons: **⟳** refresh model list · **⊖** unload model from RAM ·
   **■** stop the current generation · **⚙** set the Ollama URL.
 - The status line shows the connection state and which model is loaded.
 
 ## Ollama connection
 
 - Defaults to `http://127.0.0.1:11434`. Change it under **⚙** if Ollama runs elsewhere.
-- No `OLLAMA_ORIGINS` configuration is needed: Ollama allows browser-extension
-  origins by default, and the extension's host permissions bypass CORS — which is
-  also what lets Web Summarizer and Video Notes fetch external pages.
+- Calls are sent as CORS-"simple" requests (no custom headers), so Ollama's default
+  origin policy accepts them — the same reason listing your models works. If a tool
+  still reports a connection or **HTTP 403** error, restart Ollama with
+  `OLLAMA_ORIGINS="*"` to allow requests from any browser origin.
 
 ## PDF support (optional)
 
 Text documents (`.txt .md .csv .log .json .html`) work out of the box. To enable
-`.pdf` in Quizlet / Guide / Search:
+`.pdf` in Flashcards / Guide / Search:
 
 1. Download the **mjs** build of pdf.js from
    <https://github.com/mozilla/pdf.js/releases> (or the `pdfjs-dist` package).

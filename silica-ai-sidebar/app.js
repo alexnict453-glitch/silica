@@ -42,9 +42,9 @@ async function monitor() {
     const data = await ollama.ps();
     const m = (data.models || [])[0];
     if (state.controller) {
-      setStatus('busy', m ? `⚡ Generating · ${shortName(m.name || m.model)}` : '⚡ Generating…');
+      setStatus('busy', m ? `Generating · ${shortName(m.name || m.model)}` : 'Generating…');
     } else if (m) {
-      setStatus('ok', `🧠 Ready · ${shortName(m.name || m.model)} · ${fmtSize(m.size)} loaded`);
+      setStatus('ok', `Ready · ${shortName(m.name || m.model)} · ${fmtSize(m.size)} loaded`);
     } else {
       setStatus('ok', 'Idle · Ollama connected');
     }
@@ -116,8 +116,7 @@ function select(idx) {
   });
 }
 tabs.forEach((t, idx) => {
-  const btn = h('button', {class: 'tab', title: t.label},
-    h('span', {class: 'tab-ico'}, t.icon), t.label);
+  const btn = h('button', {class: 'tab', title: t.label}, t.label);
   btn.addEventListener('click', () => select(idx));
   t._btn = btn;
   tabbar.append(btn);

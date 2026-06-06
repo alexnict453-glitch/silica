@@ -79,7 +79,7 @@ async function guard(ctx, out, btn, busyLabel, fn, {requireModel = true} = {}) {
   if (ctx.isBusy()) return;
   if (requireModel && !ctx.getModel()) {
     out.reset();
-    out.err('No model selected. Install one in the ⚙️ Models tab first.');
+    out.err('No model selected. Install one in the Models tab first.');
     return;
   }
   const signal = ctx.newRun();
@@ -158,7 +158,7 @@ function chatTab(ctx) {
     convo,
     h('div', {class: 'row tight'}, input),
     h('div', {class: 'row tight'}, send, clear));
-  return {id: 'chat', icon: '💬', label: 'Chat', el};
+  return {id: 'chat', label: 'Chat', el};
 }
 
 // ============================================================ WEB SUMMARIZER
@@ -184,14 +184,14 @@ function summarizerTab(ctx) {
     let first = true; let full = '';
     full = await ollama.generate({model: ctx.getModel(), prompt, options: speed.value.options, signal},
       (d) => { if (first) { out.reset(); first = false; } out.write(d); });
-    out.markdown(full + '\n\n---\n*⏱️ Completed in ' + secs() + 's.*');
+    out.markdown(full + '\n\n---\n*Completed in ' + secs() + 's.*');
   }));
 
   const el = panel('Web Summarizer', 'Fetch any page and get a clean Markdown summary.',
     url,
     h('div', {class: 'row'}, speed.el, detail.el),
     btn, out.el);
-  return {id: 'sum', icon: '🌐', label: 'Summarize', el};
+  return {id: 'sum', label: 'Summarize', el};
 }
 
 // ============================================================ IMAGE TRANSLATOR
@@ -220,18 +220,18 @@ function translatorTab(ctx) {
       messages: [{role: 'user', content: prompt, images: [b64]}],
       options: speed.value.options, signal,
     }, (d) => { if (first) { out.reset(); first = false; } out.write(d); });
-    out.markdown(full + '\n\n---\n*⏱️ Translated in ' + secs() + 's. (Needs a vision model, e.g. llava or moondream.)*');
+    out.markdown(full + '\n\n---\n*Translated in ' + secs() + 's. (Needs a vision model, e.g. llava or moondream.)*');
   }));
 
   const el = panel('Image Translator', 'Extract and translate text from a photo or screenshot.',
     file.el,
     h('div', {class: 'row'}, h('div', {class: 'field grow'}, h('label', {}, 'Target language'), lang), speed.el),
     btn, out.el);
-  return {id: 'trans', icon: '📷', label: 'Translate', el};
+  return {id: 'trans', label: 'Translate', el};
 }
 
-// ============================================================ AI QUIZLET
-function quizletTab(ctx) {
+// ============================================================ FLASHCARDS
+function flashcardsTab(ctx) {
   const file = fileField('.txt,.md,.csv,.log,.json,.html,.htm,.pdf');
   const speed = sliderGroup(SPEED_QUALITY_SETTINGS);
   const noLimit = h('input', {type: 'checkbox'});
@@ -295,7 +295,7 @@ function quizletTab(ctx) {
     testWrap.hidden = true; cardsWrap.hidden = false;
     const pct = tested ? (score / tested * 100).toFixed(0) : 0;
     out.reset();
-    out.ok((mastered ? '🏆 Deck mastered! ' : 'Test ended. ') +
+    out.ok((mastered ? 'Deck mastered! ' : 'Test ended. ') +
       'Final score: ' + score.toFixed(1) + ' / ' + tested + ' (' + pct + '%).');
   }
 
@@ -382,7 +382,7 @@ function quizletTab(ctx) {
   const startBtn = h('button', {class: 'btn subtle'}, 'Start test');
   startBtn.addEventListener('click', startTest);
 
-  const el = panel('AI Quizlet', 'Turn a document into flashcards, then quiz yourself with AI grading.',
+  const el = panel('Flashcards', 'Turn a document into flashcards, then quiz yourself with AI grading.',
     file.el,
     h('div', {class: 'row'}, speed.el),
     h('div', {class: 'row tight'},
@@ -390,7 +390,7 @@ function quizletTab(ctx) {
       h('label', {class: 'row tight', style: {gap: '5px'}}, 'Limit', limit)),
     h('div', {class: 'row tight'}, genBtn, startBtn),
     out.el, testWrap, cardsWrap);
-  return {id: 'quiz', icon: '📚', label: 'Quizlet', el};
+  return {id: 'quiz', label: 'Flashcards', el};
 }
 
 // ============================================================ STUDY GUIDE
@@ -399,7 +399,7 @@ function guideTab(ctx) {
   const speed = sliderGroup(SPEED_QUALITY_SETTINGS);
   const out = outputBox();
   const genBtn = h('button', {class: 'btn primary'}, 'Generate guide');
-  const exportBtn = h('button', {class: 'btn subtle'}, '💾 Export .md');
+  const exportBtn = h('button', {class: 'btn subtle'}, 'Export .md');
   let lastMd = '';
 
   genBtn.addEventListener('click', () => guard(ctx, out, genBtn, 'Generating…', async (signal, secs) => {
@@ -424,7 +424,7 @@ function guideTab(ctx) {
         (d) => out.write(d));
       md += part + '\n\n---\n\n';
     }
-    lastMd = md + '\n*⏱️ Compiled in ' + secs() + 's across ' + chunks.length + ' segment(s).*';
+    lastMd = md + '\n*Compiled in ' + secs() + 's across ' + chunks.length + ' segment(s).*';
     out.markdown(lastMd);
   }));
 
@@ -438,7 +438,7 @@ function guideTab(ctx) {
     h('div', {class: 'row'}, speed.el),
     h('div', {class: 'row tight'}, genBtn, exportBtn),
     out.el);
-  return {id: 'guide', icon: '📖', label: 'Guide', el};
+  return {id: 'guide', label: 'Guide', el};
 }
 
 // ============================================================ VIDEO NOTES
@@ -448,7 +448,7 @@ function videoTab(ctx) {
   const detail = sliderGroup(DETAIL_SETTINGS);
   const out = outputBox();
   const genBtn = h('button', {class: 'btn primary'}, 'Generate notes');
-  const exportBtn = h('button', {class: 'btn subtle'}, '💾 Export .md');
+  const exportBtn = h('button', {class: 'btn subtle'}, 'Export .md');
   let lastMd = '';
 
   genBtn.addEventListener('click', () => guard(ctx, out, genBtn, 'Processing…', async (signal, secs) => {
@@ -481,7 +481,7 @@ function videoTab(ctx) {
     out.reset(); out.write(md);
     const final = await ollama.generate({model: ctx.getModel(), prompt, options: speed.value.options, signal},
       (d) => out.write(d));
-    lastMd = md + final + '\n\n---\n*⏱️ Generated in ' + secs() + 's across ' + chunks.length + ' segment(s).*';
+    lastMd = md + final + '\n\n---\n*Generated in ' + secs() + 's across ' + chunks.length + ' segment(s).*';
     out.markdown(lastMd);
   }));
 
@@ -495,7 +495,7 @@ function videoTab(ctx) {
     h('div', {class: 'row'}, speed.el, detail.el),
     h('div', {class: 'row tight'}, genBtn, exportBtn),
     out.el);
-  return {id: 'yt', icon: '📺', label: 'Video', el};
+  return {id: 'yt', label: 'Video', el};
 }
 
 // ============================================================ SMART SEARCH
@@ -523,7 +523,7 @@ function searchTab(ctx) {
       const res = (await ollama.generate({model: ctx.getModel(), prompt, options: speed.value.options, signal})).trim();
       if (!res.includes('NO_MATCH')) {
         matches++;
-        out.line('🔍 Segment ' + (i + 1) + '/' + chunks.length);
+        out.line('Segment ' + (i + 1) + '/' + chunks.length);
         out.line(res);
         out.line('');
       }
@@ -535,7 +535,7 @@ function searchTab(ctx) {
     file.el, query,
     h('div', {class: 'row'}, speed.el),
     btn, out.el);
-  return {id: 'search', icon: '🔍', label: 'Search', el};
+  return {id: 'search', label: 'Search', el};
 }
 
 // ============================================================ DIAGRAM SOLVER
@@ -583,7 +583,7 @@ function solverTab(ctx) {
     let full = '### Step 2 — verification & explanation (' + explainSel.value + ')\n\n';
     const before = full;
     full = before + await ollama.generate({model: explainSel.value, prompt: explainPrompt, signal}, (d) => out.write(d));
-    out.markdown('### Step 1 extraction\n\n' + desc + '\n\n' + full + '\n\n---\n*⏱️ Analyzed in ' + secs() + 's.*');
+    out.markdown('### Step 1 extraction\n\n' + desc + '\n\n' + full + '\n\n---\n*Analyzed in ' + secs() + 's.*');
   }, {requireModel: false}));
 
   const el = panel('Diagram Solver', 'Two-stage: a vision model transcribes, an LLM verifies and explains.',
@@ -591,7 +591,7 @@ function solverTab(ctx) {
     h('div', {class: 'field'}, h('label', {}, 'Vision model'), visionSel),
     h('div', {class: 'field'}, h('label', {}, 'Explaining model'), explainSel),
     btn, out.el);
-  return {id: 'solver', icon: '🔬', label: 'Solver', el};
+  return {id: 'solver', label: 'Solver', el};
 }
 
 // ============================================================ MODEL MANAGER
@@ -620,7 +620,7 @@ function managerTab(ctx) {
           ((p.completed || 0) / p.total * 100).toFixed(1) + '% (' + (p.status || '') + ')';
         else status.textContent = p.status || 'working…';
       });
-      status.textContent = '✓ Installed ' + name;
+      status.textContent = 'Installed ' + name;
       await ctx.refreshModels();
     } catch (e) {
       status.textContent = e.name === 'AbortError' ? '■ Stopped.' : 'Download failed: ' + e.message;
@@ -650,8 +650,8 @@ function managerTab(ctx) {
           dl));
       });
     };
-    group(false, '✅ Safe & optimized', 'good');
-    group(true, '⚠️ High resource (lots of RAM)', 'warn');
+    group(false, 'Safe & optimized', 'good');
+    group(true, 'High resource (lots of RAM)', 'warn');
   }
   quant.el.querySelector('input').addEventListener('input', renderRec);
   renderRec();
@@ -681,7 +681,7 @@ function managerTab(ctx) {
     recBox,
     h('div', {class: 'divider'}),
     h('div', {class: 'section-label'}, 'Installed'), installedBox);
-  return {id: 'mgr', icon: '⚙️', label: 'Models', el};
+  return {id: 'mgr', label: 'Models', el};
 }
 
 // ---------- assemble ----------
@@ -690,7 +690,7 @@ export function buildTabs(ctx) {
     chatTab(ctx),
     summarizerTab(ctx),
     translatorTab(ctx),
-    quizletTab(ctx),
+    flashcardsTab(ctx),
     guideTab(ctx),
     videoTab(ctx),
     searchTab(ctx),

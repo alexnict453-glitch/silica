@@ -11,15 +11,11 @@
   <div id="app">
     <header id="topbar">
       <div class="toprow">
-        <div class="brand"><span class="brand-mark"></span>Silica<span class="brand-ai">AI</span></div>
-        <div class="spacer"></div>
-        <button id="btnSettings" class="iconbtn" title="Ollama connection settings" aria-label="Settings">⚙</button>
-      </div>
-      <div class="toprow">
         <select id="modelPicker" class="model-picker" title="Active model"></select>
         <button id="btnRefresh" class="iconbtn" title="Refresh installed models" aria-label="Refresh">⟳</button>
-        <button id="btnFree" class="iconbtn" title="Unload model from memory" aria-label="Free memory">🧹</button>
+        <button id="btnFree" class="iconbtn" title="Unload model from memory" aria-label="Free memory">⊖</button>
         <button id="btnStop" class="iconbtn danger" title="Stop generation" aria-label="Stop" disabled>■</button>
+        <button id="btnSettings" class="iconbtn" title="Ollama connection settings" aria-label="Settings">⚙</button>
       </div>
       <div id="statusline" class="statusline">
         <span id="statusDot" class="dot"></span>
@@ -32,8 +28,9 @@
           <button id="btnSaveHost" class="btn primary">Save</button>
         </div>
         <p class="hint">Silica AI talks to your local Ollama. It must be running
-          (<code>ollama serve</code>). Browser-extension origins are allowed by
-          Ollama out of the box, so no extra configuration is normally needed.</p>
+          (<code>ollama serve</code>). If a tool reports a connection or 403 error,
+          restart Ollama with <code>OLLAMA_ORIGINS="*"</code> so it accepts requests
+          from the browser.</p>
       </div>
     </header>
 

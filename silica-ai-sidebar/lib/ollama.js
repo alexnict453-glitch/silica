@@ -7,14 +7,25 @@ async function url(path) {
 
 /** Parse a streaming application/x-ndjson body, invoking onObj for each JSON line. */
 async function streamNDJSON(endpoint, body, signal, onObj) {
-  const res = await fetch(endpoint, {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(body),
-    signal,
-  });
+  // No 'Content-Type' header on purpose. Sending application/json would make
+  // this a non-simple cross-origin request, triggering a CORS preflight that
+  // Ollama answers with HTTP 403. Left off, the POST stays a "simple" request
+  // (text/plain) exactly like the working GET /api/tags — and Ollama parses
+  // the JSON body regardless of content type.
+  let res;
+  try {
+    res = await fetch(endpoint, {method: 'POST', body: JSON.stringify(body), signal});
+  } catch (e) {
+    if (e && e.name === 'AbortError') throw e;
+    throw new Error('Could not reach Ollama. Make sure it is running (ollama serve); ' +
+      'if it is, restart it with OLLAMA_ORIGINS="*".');
+  }
   if (!res.ok || !res.body) {
     const t = await res.text().catch(() => '');
+    if (res.status === 403) {
+      throw new Error('Ollama blocked the request (HTTP 403). Restart Ollama with ' +
+        'OLLAMA_ORIGINS="*" so it accepts requests from the browser.');
+    }
     throw new Error('HTTP ' + res.status + (t ? ': ' + t.slice(0, 200) : ''));
   }
   const reader = res.body.getReader();
@@ -58,7 +69,6 @@ export async function unload(model) {
   try {
     await fetch(await url('/api/generate'), {
       method: 'POST',
-      headers: {'Content-Type': 'application/json'},
       body: JSON.stringify({model, prompt: '', keep_alive: 0}),
     });
   } catch (_) { /* best effort */ }
@@ -96,7 +106,6 @@ export async function pull({model, signal}, onProgress) {
 export async function del(model) {
   const res = await fetch(await url('/api/delete'), {
     method: 'DELETE',
-    headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({model, name: model}),
   });
   if (!res.ok) throw new Error('HTTP ' + res.status);

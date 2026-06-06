@@ -1,7 +1,7 @@
 # Enable PDF support
 
 Drop two files from pdf.js into this folder to enable `.pdf` documents in the
-Quizlet, Study Guide, and Smart Search tools:
+Flashcards, Study Guide, and Smart Search tools:
 
 - `pdf.min.mjs`
 - `pdf.worker.min.mjs`

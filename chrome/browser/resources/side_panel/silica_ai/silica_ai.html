@@ -5,24 +5,30 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="color-scheme" content="dark">
   <title>Silica AI</title>
+  <link rel="stylesheet" href="chrome://theme/colors.css?sets=ui,chrome">
+  <link rel="stylesheet" href="chrome://resources/css/text_defaults_md.css">
   <style>
 /* Silica AI side panel — themed to the Silica Figma palette. */
 
 :root {
-  --bg: #181818;            /* Silica brand canvas */
-  --surface: #1d1d1d;       /* searchbox surface */
-  --surface-2: #232322;     /* lifted panels */
-  --surface-3: #2a2a28;     /* inputs / chips */
-  --border: #272726;        /* hairline borders */
-  --border-strong: #34332f;
-  --text: #f1f0e3;          /* brand foreground */
-  --text-dim: #a39f99;      /* dimmed foreground */
-  --accent: #8ab4f8;        /* brand accent blue */
+  /* Inherit the browser's own side-panel theme tokens (from chrome://theme/colors.css,
+     computed from the Silica color mixers) so the panel matches the rest of the browser
+     exactly and tracks the active theme. Hex values are fallbacks. */
+  --bg: var(--color-side-panel-content-background, #181818);
+  --surface: var(--color-side-panel-card-background, #232322);
+  --surface-2: var(--color-side-panel-card-background, #232322);
+  --surface-3: var(--color-side-panel-card-background, #2a2a28);
+  --border: var(--color-side-panel-divider, #272726);
+  --border-strong: var(--color-side-panel-divider, #34332f);
+  --text: var(--color-side-panel-card-primary-foreground, #f1f0e3);
+  --text-dim: var(--color-side-panel-card-secondary-foreground, #a39f99);
+  --accent: var(--color-side-panel-card-primary-foreground, #f1f0e3);  /* warm cream, not blue */
+  --accent-contrast: #181818;   /* solid dark text on cream fills */
   --accent-dim: #5e7fb5;
   --good: #7ad19b;
   --warn: #f1c40f;
   --bad: #e98c84;
-  --radius: 10px;
+  --radius: 12px;
   --radius-sm: 8px;
   --serif: 'Lora', Georgia, 'Times New Roman', serif;
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -51,8 +57,8 @@ html, body {
 /* ---------- Header ---------- */
 #topbar {
   flex: 0 0 auto;
-  padding: 10px 12px 8px;
-  background: linear-gradient(180deg, #1c1c1b, var(--bg));
+  padding: 8px;
+  background: transparent;
   border-bottom: 1px solid var(--border);
   display: flex;
   flex-direction: column;
@@ -108,7 +114,7 @@ html, body {
   transition: background .3s, box-shadow .3s;
 }
 .dot.ok { background: var(--good); box-shadow: 0 0 8px rgba(122,209,155,.6); }
-.dot.busy { background: var(--accent); box-shadow: 0 0 8px rgba(138,180,248,.7); animation: pulse 1s ease-in-out infinite; }
+.dot.busy { background: var(--accent); animation: pulse 1s ease-in-out infinite; }
 .dot.err { background: var(--bad); }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .35; } }
 
@@ -146,21 +152,21 @@ html, body {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 6px 10px;
+  padding: 6px 12px;
   border-radius: 999px;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: 1px solid transparent;
+  background: transparent;
   color: var(--text-dim);
   font-size: 12px;
   cursor: pointer;
   white-space: nowrap;
   transition: background .15s, color .15s, border-color .15s;
 }
-.tab:hover { color: var(--text); background: var(--surface-3); }
+.tab:hover { color: var(--text); background: var(--surface); }
 .tab.active {
-  color: var(--bg);
-  background: var(--accent);
-  border-color: var(--accent);
+  color: var(--text);
+  background: var(--surface);
+  border-color: var(--border);
   font-weight: 600;
 }
 .tab .tab-ico { font-size: 13px; }
@@ -204,8 +210,8 @@ input[type="text"], input[type="url"], textarea, select {
 textarea { resize: vertical; min-height: 64px; line-height: 1.45; }
 input::placeholder, textarea::placeholder { color: #6f6c66; }
 input:focus, textarea:focus, select:focus {
-  border-color: var(--accent);
-  box-shadow: 0 0 0 2px rgba(138, 180, 248, .2);
+  border-color: var(--text-dim);
+  box-shadow: 0 0 0 2px rgba(241, 240, 227, .12);
 }
 select { appearance: none; cursor: pointer; padding-right: 26px;
   background-image: linear-gradient(45deg, transparent 50%, var(--text-dim) 50%),
@@ -226,7 +232,7 @@ button {
 }
 button:hover:not(:disabled) { filter: brightness(1.15); }
 button:disabled { opacity: .5; cursor: default; }
-.btn.primary { background: var(--accent); color: var(--bg); border-color: var(--accent); font-weight: 600; }
+.btn.primary { background: var(--accent); color: var(--accent-contrast); border-color: var(--accent); font-weight: 600; }
 .btn.subtle { background: var(--surface-3); }
 .btn.danger { background: #3a2422; color: var(--bad); border-color: #4a2c29; }
 .btn.block { width: 100%; }
@@ -261,7 +267,7 @@ input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none; appearance: none;
   width: 14px; height: 14px; border-radius: 50%;
   background: var(--accent); cursor: pointer;
-  box-shadow: 0 0 6px rgba(138,180,248,.5);
+  box-shadow: none;
 }
 
 /* ---------- Output / markdown ---------- */
@@ -293,7 +299,7 @@ input[type="range"]::-webkit-slider-thumb {
 .md p { margin: 8px 0; }
 .md ul, .md ol { margin: 6px 0; padding-left: 20px; }
 .md li { margin: 3px 0; }
-.md a { color: var(--accent); text-decoration: none; }
+.md a { color: var(--accent); text-decoration: underline; }
 .md a:hover { text-decoration: underline; }
 .md code { font-family: var(--mono); font-size: 12px; background: #121212; padding: 1px 5px; border-radius: 4px; color: #e0c08a; }
 .md pre { background: #121212; border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 10px; overflow-x: auto; }
@@ -306,8 +312,8 @@ input[type="range"]::-webkit-slider-thumb {
 
 /* ---------- Misc ---------- */
 .divider { height: 1px; background: var(--border); margin: 2px 0; }
-.badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: #1f2a36; color: var(--accent); }
-.badge.vision { background: #1f2a36; color: var(--accent); }
+.badge { font-size: 10px; font-weight: 700; letter-spacing: .04em; padding: 2px 6px; border-radius: 4px; background: var(--surface-3); color: var(--text-dim); }
+.badge.vision { background: var(--surface-3); color: var(--text-dim); }
 
 /* Model manager rows */
 .model-row {
@@ -329,7 +335,7 @@ input[type="range"]::-webkit-slider-thumb {
 }
 .suggest .chip:hover { border-color: var(--accent); color: var(--accent); }
 
-/* Quizlet flashcard test */
+/* Flashcards test */
 .quiz-card {
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: var(--radius); padding: 16px; text-align: center;
@@ -358,15 +364,11 @@ input[type="range"]::-webkit-slider-thumb {
   <div id="app">
     <header id="topbar">
       <div class="toprow">
-        <div class="brand"><span class="brand-mark"></span>Silica<span class="brand-ai">AI</span></div>
-        <div class="spacer"></div>
-        <button id="btnSettings" class="iconbtn" title="Ollama connection settings" aria-label="Settings">⚙</button>
-      </div>
-      <div class="toprow">
         <select id="modelPicker" class="model-picker" title="Active model"></select>
         <button id="btnRefresh" class="iconbtn" title="Refresh installed models" aria-label="Refresh">⟳</button>
-        <button id="btnFree" class="iconbtn" title="Unload model from memory" aria-label="Free memory">🧹</button>
+        <button id="btnFree" class="iconbtn" title="Unload model from memory" aria-label="Free memory">⊖</button>
         <button id="btnStop" class="iconbtn danger" title="Stop generation" aria-label="Stop" disabled>■</button>
+        <button id="btnSettings" class="iconbtn" title="Ollama connection settings" aria-label="Settings">⚙</button>
       </div>
       <div id="statusline" class="statusline">
         <span id="statusDot" class="dot"></span>

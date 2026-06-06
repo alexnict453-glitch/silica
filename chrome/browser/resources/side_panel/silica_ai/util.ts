@@ -55,19 +55,19 @@ export async function setHost(value) {
 
 // ---- Ported tuning tables (from the Python Local AI Studio) ----
 export const SPEED_QUALITY_SETTINGS = [
-  {label: '🚀 Ultra Fast',  options: {num_ctx: 1024,  temperature: 0.1, top_p: 0.4},  chunk_size: 800,  color: '#e98c84'},
-  {label: '⚡ Fast',        options: {num_ctx: 2048,  temperature: 0.3, top_p: 0.6},  chunk_size: 1300, color: '#e0a064'},
-  {label: '⚖️ Balanced',    options: {num_ctx: 4096,  temperature: 0.5, top_p: 0.8},  chunk_size: 1800, color: '#8ab4f8'},
-  {label: '🧠 High Quality', options: {num_ctx: 8192,  temperature: 0.7, top_p: 0.9},  chunk_size: 2500, color: '#b794f6'},
-  {label: '🏆 Max Quality',  options: {num_ctx: 12288, temperature: 0.8, top_p: 0.95}, chunk_size: 3500, color: '#7ad19b'},
+  {label: 'Ultra Fast',  options: {num_ctx: 1024,  temperature: 0.1, top_p: 0.4},  chunk_size: 800,  color: '#e98c84'},
+  {label: 'Fast',        options: {num_ctx: 2048,  temperature: 0.3, top_p: 0.6},  chunk_size: 1300, color: '#e0a064'},
+  {label: 'Balanced',    options: {num_ctx: 4096,  temperature: 0.5, top_p: 0.8},  chunk_size: 1800, color: '#8ab4f8'},
+  {label: 'High Quality', options: {num_ctx: 8192,  temperature: 0.7, top_p: 0.9},  chunk_size: 2500, color: '#b794f6'},
+  {label: 'Max Quality',  options: {num_ctx: 12288, temperature: 0.8, top_p: 0.95}, chunk_size: 3500, color: '#7ad19b'},
 ];
 
 export const DETAIL_SETTINGS = [
-  {label: '❄️ Minimal',       instructions: 'Provide a highly condensed overview focusing strictly on the 2-3 most essential points. Limit details.', color: '#9aa0a6'},
-  {label: '📌 Concise',       instructions: 'Format your summary using clear, brief bullet points outlining key ideas without unnecessary filler.', color: '#e0a064'},
-  {label: '⚖️ Standard',      instructions: 'Provide a balanced, standard detailed summary. Explain central concepts clearly and structure important arguments.', color: '#8ab4f8'},
-  {label: '📖 Comprehensive', instructions: 'Provide a highly detailed, deeply informative layout. Include detailed concept explanations and expand fully on technical contexts.', color: '#b794f6'},
-  {label: '🔍 Deep-Dive',     instructions: 'Produce an exhaustive breakdown. Trace every fact, key data point, and conceptual sequence mentioned in the input, leaving nothing out.', color: '#7ad19b'},
+  {label: 'Minimal',       instructions: 'Provide a highly condensed overview focusing strictly on the 2-3 most essential points. Limit details.', color: '#9aa0a6'},
+  {label: 'Concise',       instructions: 'Format your summary using clear, brief bullet points outlining key ideas without unnecessary filler.', color: '#e0a064'},
+  {label: 'Standard',      instructions: 'Provide a balanced, standard detailed summary. Explain central concepts clearly and structure important arguments.', color: '#8ab4f8'},
+  {label: 'Comprehensive', instructions: 'Provide a highly detailed, deeply informative layout. Include detailed concept explanations and expand fully on technical contexts.', color: '#b794f6'},
+  {label: 'Deep-Dive',     instructions: 'Produce an exhaustive breakdown. Trace every fact, key data point, and conceptual sequence mentioned in the input, leaving nothing out.', color: '#7ad19b'},
 ];
 
 export const RECOMMENDED_MODELS = [

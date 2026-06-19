@@ -911,8 +911,7 @@ void URLLoader::ScheduleStart() {
   if (url_request_) {
     const int load_flags = url_request_->load_flags();
     const bool is_navigation =
-        (load_flags & net::LOAD_MAIN_FRAME_DEPRECATED) != 0 ||
-        (load_flags & net::LOAD_FOR_MAIN_FRAME) != 0;
+        (load_flags & net::LOAD_MAIN_FRAME_DEPRECATED) != 0;
 
     if (!is_navigation) {
       std::string request_url = url_request_->url().spec();

@@ -652,21 +652,10 @@ ContentSubresourceFilterThrottleManager::
   if (IsInSubresourceFilterRoot(&navigation_handle)) {
     auto throttle = ActivationStateComputingNavigationThrottle::CreateForRoot(
         registry, kSafeBrowsingRulesetConfig.uma_tag);
-
-    // FORCE ENABLE NATIVELY ON ROOT NAVIGATIONS (UNLESS ALLOWLISTED):
-    mojom::ActivationState forced_state;
-    if (profile_interaction_manager_ &&
-        profile_interaction_manager_->profile_context() &&
-        profile_interaction_manager_->profile_context()->settings_manager() &&
-        profile_interaction_manager_->profile_context()->settings_manager()->GetSitePermission(navigation_handle.GetURL()) == CONTENT_SETTING_ALLOW) {
-      forced_state.activation_level = mojom::ActivationLevel::kDisabled;
-    } else {
-      forced_state.activation_level = mojom::ActivationLevel::kEnabled;
-      forced_state.enable_logging = true;  // Prints blocked resources to the DevTools Console
-    }
-
-    throttle->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
-                                              forced_state);
+    // NOTE: Do NOT call NotifyPageActivationWithRuleset here.
+    // The throttle waits for the Safe Browsing check to complete.
+    // OnPageActivationComputed (below) is the correct callback that applies
+    // our force-enable / allowlist logic after Safe Browsing finishes.
     return throttle;
   }
 

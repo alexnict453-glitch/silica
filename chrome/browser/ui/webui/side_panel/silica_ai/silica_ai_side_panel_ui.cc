@@ -84,7 +84,6 @@ void CheckAndStartOllama() {
     base::FilePath ollama_path = local_app_data.Append(FILE_PATH_LITERAL("Programs\\Ollama\\ollama.exe"));
     if (base::PathExists(ollama_path)) {
       base::LaunchOptions options;
-      options.grant_inheritable_handles = false;
       base::CommandLine cmd(ollama_path);
       base::LaunchProcess(cmd, options);
     }

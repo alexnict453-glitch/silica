@@ -2084,10 +2084,9 @@ int URLLoader::OnHeadersReceived(
             original_response_headers->raw_headers());
       }
       std::string origin = "*";
-      std::string request_origin;
-      if (url_request_->extra_request_headers().GetHeader(
-              net::HttpRequestHeaders::kOrigin, &request_origin)) {
-        origin = request_origin;
+      if (auto val = url_request_->extra_request_headers().GetHeader(
+              net::HttpRequestHeaders::kOrigin)) {
+        origin = *val;
       }
       headers->SetHeader("Access-Control-Allow-Origin", origin);
       headers->SetHeader("Access-Control-Allow-Methods",
@@ -2636,10 +2635,9 @@ void URLLoader::OnHeadersReceivedComplete(
       }
       if (modified_headers) {
         std::string origin = "*";
-        std::string request_origin;
-        if (url_request_->extra_request_headers().GetHeader(
-                net::HttpRequestHeaders::kOrigin, &request_origin)) {
-          origin = request_origin;
+        if (auto val = url_request_->extra_request_headers().GetHeader(
+                net::HttpRequestHeaders::kOrigin)) {
+          origin = *val;
         }
         modified_headers->SetHeader("Access-Control-Allow-Origin", origin);
         modified_headers->SetHeader("Access-Control-Allow-Methods",

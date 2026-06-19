@@ -910,8 +910,10 @@ void URLLoader::ScheduleStart() {
   if (url_request_) {
     std::string request_url = url_request_->url().spec();
 
-    // Check if the URL matches our built-in tracker block list
-    if (IsTrackingOrAdUrl(request_url)) {
+    // Check if the URL matches our built-in tracker block list (unless allowlisted)
+    if (url_request_->extra_request_headers().HasHeader("X-Allow-Ads")) {
+      // Allowed by client! Bypass blocking.
+    } else if (IsTrackingOrAdUrl(request_url)) {
       // Defer calling NotifyCompleted so that URLLoader finishes initialization
       // safely.
       base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
@@ -2068,6 +2070,35 @@ int URLLoader::OnHeadersReceived(
                        preserve_fragment_on_redirect_url));
     return net::ERR_IO_PENDING;
   }
+
+  if (url_request_) {
+    const GURL& request_url = url_request_->url();
+    if (request_url.is_valid() &&
+        (request_url.host() == "localhost" || request_url.host() == "127.0.0.1") &&
+        request_url.port() == "11434") {
+      scoped_refptr<net::HttpResponseHeaders> headers;
+      if (override_response_headers && *override_response_headers) {
+        headers = *override_response_headers;
+      } else {
+        headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+            original_response_headers->raw_headers());
+      }
+      std::string origin = "*";
+      std::string request_origin;
+      if (url_request_->extra_request_headers().GetHeader(
+              net::HttpRequestHeaders::kOrigin, &request_origin)) {
+        origin = request_origin;
+      }
+      headers->SetHeader("Access-Control-Allow-Origin", origin);
+      headers->SetHeader("Access-Control-Allow-Methods",
+                          "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+      headers->SetHeader("Access-Control-Allow-Headers", "*");
+      headers->SetHeader("Access-Control-Allow-Credentials", "true");
+      headers->SetHeader("Access-Control-Allow-Private-Network", "true");
+      *override_response_headers = headers;
+    }
+  }
+
   return net::OK;
 }
 
@@ -2590,6 +2621,37 @@ void URLLoader::OnHeadersReceivedComplete(
         base::MakeRefCounted<net::HttpResponseHeaders>(headers.value());
   }
   *out_preserve_fragment_on_redirect_url = preserve_fragment_on_redirect_url;
+
+  if (url_request_) {
+    const GURL& request_url = url_request_->url();
+    if (request_url.is_valid() &&
+        (request_url.host() == "localhost" || request_url.host() == "127.0.0.1") &&
+        request_url.port() == "11434") {
+      scoped_refptr<net::HttpResponseHeaders> modified_headers;
+      if (out_headers && *out_headers) {
+        modified_headers = *out_headers;
+      } else if (url_request_->response_headers()) {
+        modified_headers = base::MakeRefCounted<net::HttpResponseHeaders>(
+            url_request_->response_headers()->raw_headers());
+      }
+      if (modified_headers) {
+        std::string origin = "*";
+        std::string request_origin;
+        if (url_request_->extra_request_headers().GetHeader(
+                net::HttpRequestHeaders::kOrigin, &request_origin)) {
+          origin = request_origin;
+        }
+        modified_headers->SetHeader("Access-Control-Allow-Origin", origin);
+        modified_headers->SetHeader("Access-Control-Allow-Methods",
+                                    "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+        modified_headers->SetHeader("Access-Control-Allow-Headers", "*");
+        modified_headers->SetHeader("Access-Control-Allow-Credentials", "true");
+        modified_headers->SetHeader("Access-Control-Allow-Private-Network", "true");
+        *out_headers = modified_headers;
+      }
+    }
+  }
+
   std::move(callback).Run(result);
 }
 

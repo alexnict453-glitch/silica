@@ -39,6 +39,8 @@ class ProfileInteractionManager
       SubresourceFilterProfileContext* profile_context);
   ~ProfileInteractionManager() override;
 
+  SubresourceFilterProfileContext* profile_context() { return profile_context_; }
+
   ProfileInteractionManager(const ProfileInteractionManager&) = delete;
   ProfileInteractionManager& operator=(const ProfileInteractionManager&) =
       delete;

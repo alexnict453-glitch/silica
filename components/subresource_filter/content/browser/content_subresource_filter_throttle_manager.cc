@@ -22,6 +22,9 @@
 #include "components/subresource_filter/content/browser/content_subresource_filter_web_contents_helper.h"
 #include "components/subresource_filter/content/browser/page_load_statistics.h"
 #include "components/subresource_filter/content/browser/profile_interaction_manager.h"
+#include "components/subresource_filter/content/browser/subresource_filter_profile_context.h"
+#include "components/subresource_filter/content/browser/subresource_filter_content_settings_manager.h"
+#include "components/content_settings/core/common/content_settings.h"
 #include "components/subresource_filter/content/browser/safe_browsing_child_navigation_throttle.h"
 #include "components/subresource_filter/content/browser/safe_browsing_page_activation_throttle.h"
 #include "components/subresource_filter/content/browser/utils.h"
@@ -507,11 +510,18 @@ void ContentSubresourceFilterThrottleManager::OnPageActivationComputed(
     return;
   }
 
-  // FORCE ENABLE ON COMPUTED ACTIVATIONS:
+  // FORCE ENABLE ON COMPUTED ACTIVATIONS (UNLESS ALLOWLISTED):
   // Intercept the computed activation state and promote it to enabled.
   mojom::ActivationState forced_activation_state = activation_state;
-  forced_activation_state.activation_level = mojom::ActivationLevel::kEnabled;
-  forced_activation_state.enable_logging = true;
+  if (profile_interaction_manager_ &&
+      profile_interaction_manager_->profile_context() &&
+      profile_interaction_manager_->profile_context()->settings_manager() &&
+      profile_interaction_manager_->profile_context()->settings_manager()->GetSitePermission(navigation_handle->GetURL()) == CONTENT_SETTING_ALLOW) {
+    forced_activation_state.activation_level = mojom::ActivationLevel::kDisabled;
+  } else {
+    forced_activation_state.activation_level = mojom::ActivationLevel::kEnabled;
+    forced_activation_state.enable_logging = true;
+  }
 
   it->second->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
                                               forced_activation_state);
@@ -643,11 +653,17 @@ ContentSubresourceFilterThrottleManager::
     auto throttle = ActivationStateComputingNavigationThrottle::CreateForRoot(
         registry, kSafeBrowsingRulesetConfig.uma_tag);
 
-    // FORCE ENABLE NATIVELY ON ROOT NAVIGATIONS:
+    // FORCE ENABLE NATIVELY ON ROOT NAVIGATIONS (UNLESS ALLOWLISTED):
     mojom::ActivationState forced_state;
-    forced_state.activation_level = mojom::ActivationLevel::kEnabled;
-    forced_state.enable_logging =
-        true;  // Prints blocked resources to the DevTools Console
+    if (profile_interaction_manager_ &&
+        profile_interaction_manager_->profile_context() &&
+        profile_interaction_manager_->profile_context()->settings_manager() &&
+        profile_interaction_manager_->profile_context()->settings_manager()->GetSitePermission(navigation_handle.GetURL()) == CONTENT_SETTING_ALLOW) {
+      forced_state.activation_level = mojom::ActivationLevel::kDisabled;
+    } else {
+      forced_state.activation_level = mojom::ActivationLevel::kEnabled;
+      forced_state.enable_logging = true;  // Prints blocked resources to the DevTools Console
+    }
 
     throttle->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
                                               forced_state);

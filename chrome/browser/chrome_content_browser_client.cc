@@ -6024,6 +6024,21 @@ GetClientDataHeader(content::FrameTreeNodeId frame_tree_node_id) {
 }
 #endif
 
+class AdBlockBypassThrottle : public blink::URLLoaderThrottle {
+ public:
+  explicit AdBlockBypassThrottle(bool allow_ads) : allow_ads_(allow_ads) {}
+  ~AdBlockBypassThrottle() override = default;
+
+  void WillStartRequest(network::ResourceRequest* request, bool* defer) override {
+    if (allow_ads_) {
+      request->headers.SetHeader("X-Allow-Ads", "1");
+    }
+  }
+
+ private:
+  bool allow_ads_;
+};
+
 std::unique_ptr<blink::URLLoaderThrottle> CreateGoogleURLLoaderThrottle(
 #if BUILDFLAG(IS_ANDROID)
     const std::string& client_data_header,
@@ -6081,6 +6096,26 @@ ChromeContentBrowserClient::CreateURLLoaderThrottles(
   DCHECK(browser_context);
   Profile* profile = Profile::FromBrowserContext(browser_context);
   DCHECK(profile);
+
+  bool allow_ads = false;
+  if (profile) {
+    HostContentSettingsMap* settings_map =
+        HostContentSettingsMapFactory::GetForProfile(profile);
+    if (settings_map) {
+      GURL top_url;
+      if (request.request_initiator) {
+        top_url = request.request_initiator->GetURL();
+      } else {
+        top_url = request.url;
+      }
+      if (top_url.is_valid() &&
+          settings_map->GetContentSetting(top_url, top_url, ContentSettingsType::ADS) ==
+              CONTENT_SETTING_ALLOW) {
+        allow_ads = true;
+      }
+    }
+  }
+  result.push_back(std::make_unique<AdBlockBypassThrottle>(allow_ads));
 
   ChromeNavigationUIData* chrome_navigation_ui_data =
       static_cast<ChromeNavigationUIData*>(navigation_ui_data);

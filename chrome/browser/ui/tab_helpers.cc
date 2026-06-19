@@ -31,6 +31,8 @@
 #include "chrome/browser/commerce/shopping_service_factory.h"
 #include "chrome/browser/complex_tasks/task_tab_helper.h"
 #include "chrome/browser/content_settings/host_content_settings_map_factory.h"
+#include "components/content_settings/core/browser/host_content_settings_map.h"
+#include "components/content_settings/core/common/content_settings_types.h"
 #include "chrome/browser/content_settings/mixed_content_settings_tab_helper.h"
 #include "chrome/browser/content_settings/page_specific_content_settings_delegate.h"
 #include "chrome/browser/content_settings/sound_content_setting_observer.h"
@@ -360,6 +362,17 @@ class YouTubeAdSkipper : public content::WebContentsObserver,
     }
     const GURL& url = frame_host->GetLastCommittedURL();
     if (url.DomainIs("youtube.com")) {
+      Profile* profile =
+          Profile::FromBrowserContext(web_contents()->GetBrowserContext());
+      if (profile) {
+        HostContentSettingsMap* settings_map =
+            HostContentSettingsMapFactory::GetForProfile(profile);
+        if (settings_map &&
+            settings_map->GetContentSetting(url, url, ContentSettingsType::ADS) ==
+                CONTENT_SETTING_ALLOW) {
+          return;
+        }
+      }
       const char* ad_skip_js = R"JS(
         (function() {
           if (window.__ytAdBlockActive) return;

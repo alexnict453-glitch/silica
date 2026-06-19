@@ -258,14 +258,11 @@ class BlocklistManager {
 bool IsTrackingOrAdUrl(const std::string& url_spec) {
   static constexpr const char* kBlockList[] = {"google-analytics.com",
                                                "doubleclick.net",
-                                               "telemetry",
-                                               "analytics",
                                                "scorecardresearch.com",
                                                "adnxs.com",
                                                "quantserve.com",
                                                "facebook.com/tr/",
                                                "/pagead/",
-                                               "/ads/",
                                                "youtube.com/api/stats/ads",
                                                "youtube.com/ptracking",
                                                "googlesyndication.com",
@@ -907,20 +904,29 @@ void URLLoader::ScheduleStart() {
               net::NetLogWithSourceToFlow(url_request_->net_log()));
 
   // --- BEGIN NATIVE TRACKER BLOCKER ---
+  // Only block subresource requests. Navigation requests (main-frame fetches)
+  // must always reach url_request_->Start(); blocking them here via an early
+  // return without starting the request corrupts network stack state and
+  // causes a browser crash.
   if (url_request_) {
-    std::string request_url = url_request_->url().spec();
+    const int load_flags = url_request_->load_flags();
+    const bool is_navigation =
+        (load_flags & net::LOAD_MAIN_FRAME_DEPRECATED) != 0 ||
+        (load_flags & net::LOAD_FOR_MAIN_FRAME) != 0;
 
-    // Check if the URL matches our built-in tracker block list (unless allowlisted)
-    if (url_request_->extra_request_headers().HasHeader("X-Allow-Ads")) {
-      // Allowed by client! Bypass blocking.
-    } else if (IsTrackingOrAdUrl(request_url)) {
-      // Defer calling NotifyCompleted so that URLLoader finishes initialization
-      // safely.
-      base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
-          FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
-                                    weak_ptr_factory_.GetWeakPtr(),
-                                    net::ERR_BLOCKED_BY_CLIENT));
-      return;
+    if (!is_navigation) {
+      std::string request_url = url_request_->url().spec();
+      if (url_request_->extra_request_headers().HasHeader("X-Allow-Ads")) {
+        // Allowed by client! Bypass blocking.
+      } else if (IsTrackingOrAdUrl(request_url)) {
+        // Defer calling NotifyCompleted so that URLLoader finishes
+        // initialization safely.
+        base::SequencedTaskRunner::GetCurrentDefault()->PostTask(
+            FROM_HERE, base::BindOnce(&URLLoader::NotifyCompleted,
+                                      weak_ptr_factory_.GetWeakPtr(),
+                                      net::ERR_BLOCKED_BY_CLIENT));
+        return;
+      }
     }
   }
   // --- END NATIVE TRACKER BLOCKER ---

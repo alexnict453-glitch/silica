@@ -523,6 +523,13 @@ void ContentSubresourceFilterThrottleManager::OnPageActivationComputed(
     forced_activation_state.enable_logging = true;
   }
 
+  if (forced_activation_state.activation_level == mojom::ActivationLevel::kDisabled) {
+    // Cache the reason for metrics recording on navigation finish.
+    root_navigation_disabled_reason_ = activation_state.disabled_reason;
+    ongoing_activation_throttles_.erase(it);
+    return;
+  }
+
   it->second->NotifyPageActivationWithRuleset(EnsureRulesetHandle(),
                                               forced_activation_state);
 }

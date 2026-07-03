@@ -375,8 +375,22 @@ class YouTubeAdSkipper : public content::WebContentsObserver,
       }
       const char* ad_skip_js = R"JS(
         (function() {
-          if (window.__ytAdBlockActive) return;
-          window.__ytAdBlockActive = true;
+          // Use a WeakMap instead of a detectable global property to mark initialization
+          const _initMap = new WeakMap();
+          if (_initMap.has(window)) return;
+          _initMap.set(window, true);
+
+          // Utility: make an overridden function look native to toString() checks
+          const _nativeToString = Function.prototype.toString;
+          const makeNative = (fn, nativeSrc) => {
+            try {
+              Object.defineProperty(fn, 'name', { value: nativeSrc.name || '', configurable: true });
+              const toStr = function toString() { return 'function ' + (nativeSrc.name || '') + '() { [native code] }'; };
+              Object.defineProperty(toStr, 'toString', { value: _nativeToString.bind(toStr), configurable: true });
+              Object.defineProperty(fn, 'toString', { value: toStr, configurable: true });
+            } catch(e) {}
+            return fn;
+          };
 
           // 1. CSS Rules to instantly hide UI ad layout elements
           const style = document.createElement('style');
@@ -385,57 +399,76 @@ class YouTubeAdSkipper : public content::WebContentsObserver,
             ytd-promoted-video-renderer, #masthead-ad, #player-ads, .ytp-ad-overlay-container,
             .ytp-ad-message-container, .ytp-ad-image-overlay, .ytp-ad-text-overlay,
             #rendering-content.ytd-ad-slot-renderer, .ytd-carousel-ad-renderer-wrapper,
-            ytd-display-ad-renderer, ytd-statement-banner-renderer, .ad-showing, .ad-interrupting,
+            ytd-display-ad-renderer, ytd-statement-banner-renderer,
             ytd-action-companion-ad-renderer, ytd-banner-promo-renderer-background,
-            .video-ads, .ytp-ad-module, tp-yt-paper-dialog:has(yt-playability-error-supported-renderers) { 
+            .video-ads, .ytp-ad-module,
+            tp-yt-paper-dialog:has(yt-playability-error-supported-renderers) { 
               display: none !important; 
             }
           `;
           document.documentElement.appendChild(style);
 
-          // 2. Helper to strip ad variables out of JSON payloads
+          // 2. Helper to recursively strip ad variables out of JSON payloads
           const stripAds = (obj) => {
             if (!obj || typeof obj !== 'object') return obj;
             try {
               if (obj.playerResponse) {
-                delete obj.playerResponse.adPlacements;
-                delete obj.playerResponse.playerAds;
+                stripAds(obj.playerResponse);
               }
-              if (obj.adPlacements) delete obj.adPlacements;
-              if (obj.playerAds) delete obj.playerAds;
+              // Delete top-level ad fields
+              delete obj.adPlacements;
+              delete obj.playerAds;
+              delete obj.adSlots;
+              delete obj.adPlacementConfig;
+
               if (obj.overlay && obj.overlay.playerOverlayRenderer) {
                 delete obj.overlay.playerOverlayRenderer.playerAds;
+              }
+
+              // Recursively delete nested ad renderers by key name
+              for (const key in obj) {
+                if (!Object.prototype.hasOwnProperty.call(obj, key)) continue;
+                const val = obj[key];
+                if (val && typeof val === 'object') {
+                  const lk = key.toLowerCase();
+                  if (lk.includes('adplacement') || lk.includes('adslot') ||
+                      lk.includes('companionad') || lk.includes('promotedvideo') ||
+                      lk.includes('promotedsparkles') || lk.includes('carouselad') ||
+                      lk.includes('displayad') || lk.includes('enforcementmessage')) {
+                    delete obj[key];
+                  } else {
+                    stripAds(val);
+                  }
+                }
               }
             } catch(e) {}
             return obj;
           };
 
-          // 3. Intercept Initial Global Player Response Config (On Cold Page Loads)
-          let _ytInitialPlayerResponse = window.ytInitialPlayerResponse;
+          // 3. Intercept Initial Global Player Response (cold page loads)
+          let _ytIPR = window.ytInitialPlayerResponse;
           Object.defineProperty(window, 'ytInitialPlayerResponse', {
-            get: () => _ytInitialPlayerResponse,
-            set: (val) => { _ytInitialPlayerResponse = stripAds(val); }
+            get: () => _ytIPR,
+            set: (v) => { _ytIPR = stripAds(v); },
+            configurable: true,
           });
-          if (window.ytInitialPlayerResponse) {
-            window.ytInitialPlayerResponse = stripAds(window.ytInitialPlayerResponse);
-          }
+          if (_ytIPR) stripAds(_ytIPR);
 
-          let _ytInitialData = window.ytInitialData;
+          let _ytID = window.ytInitialData;
           Object.defineProperty(window, 'ytInitialData', {
-            get: () => _ytInitialData,
-            set: (val) => { _ytInitialData = stripAds(val); }
+            get: () => _ytID,
+            set: (v) => { _ytID = stripAds(v); },
+            configurable: true,
           });
-          if (window.ytInitialData) {
-            window.ytInitialData = stripAds(window.ytInitialData);
-          }
+          if (_ytID) stripAds(_ytID);
 
-          // 4. Intercept Fetch API requests (On Dynamic Player/Video Transitions)
-          const origFetch = window.fetch;
-          window.fetch = async function(...args) {
-            const reqUrl = typeof args[0] === 'string' ? args[0] : (args[0] ? args[0].url : '');
-            if (reqUrl.includes('/youtubei/v1/player') || reqUrl.includes('/youtubei/v1/next')) {
+          // 4. Intercept Fetch API — stealth override with native toString() spoofing
+          const _origFetch = window.fetch;
+          const _stealthFetch = async function fetch(...args) {
+            const reqUrl = typeof args[0] === 'string' ? args[0] : (args[0] && args[0].url ? args[0].url : '');
+            if (reqUrl.includes('/youtubei/v1/')) {
               try {
-                const response = await origFetch.apply(this, args);
+                const response = await _origFetch.apply(this, args);
                 const clone = response.clone();
                 const text = await clone.text();
                 const json = JSON.parse(text);
@@ -446,54 +479,80 @@ class YouTubeAdSkipper : public content::WebContentsObserver,
                   headers: response.headers
                 });
               } catch (e) {
-                return origFetch.apply(this, args);
+                return _origFetch.apply(this, args);
               }
             }
-            return origFetch.apply(this, args);
+            return _origFetch.apply(this, args);
           };
+          makeNative(_stealthFetch, _origFetch);
+          window.fetch = _stealthFetch;
 
-          // 5. Intercept XMLHttpRequest requests
-          const origOpen = XMLHttpRequest.prototype.open;
-          XMLHttpRequest.prototype.open = function(method, url) {
-            this._reqUrl = url;
-            return origOpen.apply(this, arguments);
+          // 5. Intercept XHR — stealth override with native toString() spoofing
+          const _origOpen = XMLHttpRequest.prototype.open;
+          const _stealthOpen = function open(method, url) {
+            this._ytReqUrl = url;
+            return _origOpen.apply(this, arguments);
           };
-          const origGetText = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'responseText');
-          if (origGetText) {
-            Object.defineProperty(XMLHttpRequest.prototype, 'responseText', {
-              get: function() {
-                const text = origGetText.get.call(this);
-                if (this._reqUrl && (this._reqUrl.includes('/youtubei/v1/player') || this._reqUrl.includes('/youtubei/v1/next'))) {
-                  try {
-                    const json = JSON.parse(text);
-                    return JSON.stringify(stripAds(json));
-                  } catch(e) {}
-                }
-                return text;
-              }
-            });
-          }
+          makeNative(_stealthOpen, _origOpen);
+          XMLHttpRequest.prototype.open = _stealthOpen;
 
-          // 6. Fast Player Ad-Skipping Fallback (For un-intercepted dynamic elements)
-          const skipYouTubeAd = () => {
+          const _origSend = XMLHttpRequest.prototype.send;
+          const _stealthSend = function send(body) {
+            if (this._ytReqUrl && this._ytReqUrl.includes('/youtubei/v1/')) {
+              const self = this;
+              const _origOnLoad = this.onload;
+              this.onload = function(e) {
+                try {
+                  const descr = Object.getOwnPropertyDescriptor(XMLHttpRequest.prototype, 'responseText');
+                  const rawText = descr ? descr.get.call(self) : self.responseText;
+                  const json = JSON.parse(rawText);
+                  stripAds(json);
+                  // Patch responseText via writable clone won't work on XHR natively;
+                  // JSON pruning happens before player reads it via fetch interception above.
+                } catch(e2) {}
+                if (typeof _origOnLoad === 'function') _origOnLoad.call(this, e);
+              };
+            }
+            return _origSend.apply(this, arguments);
+          };
+          makeNative(_stealthSend, _origSend);
+          XMLHttpRequest.prototype.send = _stealthSend;
+
+          // 6. Ad-Skipping Fallback — Observer only, no setInterval (avoids bot detection)
+          let _adOrigRate = 1;
+          let _adOrigMuted = false;
+          let _adWasShowing = false;
+
+          const _handleAdChange = () => {
             const video = document.querySelector('video');
-            const adShowing = document.querySelector('.ad-showing, .ad-interrupting');
-            if (video && adShowing) {
+            if (!video) return;
+            const adEl = document.querySelector('.ad-showing, .ad-interrupting');
+            if (adEl) {
+              if (!_adWasShowing) {
+                _adWasShowing = true;
+                _adOrigRate = (video.playbackRate > 1 && video.playbackRate !== 16) ? 1 : video.playbackRate;
+                _adOrigMuted = video.muted;
+              }
+              // Speed up without seeking — seeking is flagged by QoE telemetry
               video.playbackRate = 16.0;
               video.muted = true;
-              if (!isNaN(video.duration) && video.duration > 0) {
-                 video.currentTime = video.duration - 0.1;
+              // Click available skip buttons
+              document.querySelectorAll(
+                '.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern, ' +
+                '.ytp-ad-skip-button-text, .ytp-ad-skip-button-slot'
+              ).forEach(b => b.click());
+            } else {
+              if (_adWasShowing) {
+                _adWasShowing = false;
+                video.playbackRate = _adOrigRate;
+                video.muted = _adOrigMuted;
               }
             }
-            const skipButtons = document.querySelectorAll('.ytp-skip-ad-button, .ytp-ad-skip-button, .ytp-ad-skip-button-modern');
-            skipButtons.forEach(b => {
-              b.click();
-              b.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-            });
           };
-          const observer = new MutationObserver(skipYouTubeAd);
-          observer.observe(document.documentElement, { childList: true, subtree: true });
-          setInterval(skipYouTubeAd, 500);
+
+          // Observe DOM changes only — no polling interval needed
+          const _adObserver = new MutationObserver(_handleAdChange);
+          _adObserver.observe(document.documentElement, { childList: true, subtree: true });
         })();
       )JS";
 
